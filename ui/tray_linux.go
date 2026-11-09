@@ -59,7 +59,11 @@ func startLinuxTray() {
 		Title: config.AppName,
 		Activate: func(x, y int) {
 			logger.Debug("Tray: activate at %d,%d", x, y)
-			// SNI hosts report X pixels.
+			// SNI hosts report X pixels, apart from Plasma with mixed
+			// screen scales.
+			if x != 0 || y != 0 {
+				x, y = sniClickToX(x, y)
+			}
 			s := gtkScale()
 			setTrayClick(x/s, y/s, x != 0 || y != 0)
 			toggleTrayPopup()
