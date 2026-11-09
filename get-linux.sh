@@ -5,11 +5,12 @@
 #
 # Detects the distribution and CPU architecture, downloads the matching
 # package (deb, rpm or Arch) from the latest Linux release on GitHub and
-# installs it with the system package manager.
+# installs it with the system package manager. On other distributions
+# (Gentoo, Void, ...) it installs the tar.gz with its install.sh instead.
 #
 # Options:
-#   --format deb|rpm|arch   Skip distribution detection.
-#   --version X.Y.Z         Install this version instead of the latest.
+#   --format deb|rpm|arch|tar   Skip distribution detection.
+#   --version X.Y.Z             Install this version instead of the latest.
 
 set -e
 
@@ -92,7 +93,8 @@ detect_arch() {
 }
 
 # Package format for this distribution: deb, rpm or arch. Reads
-# /etc/os-release, then falls back to whichever package manager is present.
+# /etc/os-release, then falls back to whichever package manager is present,
+# then to the tar.gz.
 detect_format() {
     ids=""
     if [ -r /etc/os-release ]; then
@@ -114,9 +116,9 @@ detect_format() {
     fi
     if command -v pacman >/dev/null 2>&1; then echo "arch"; return; fi
 
-    print_error "Could not detect your distribution's package format."
-    print_error "Re-run with --format deb, --format rpm or --format arch."
-    exit 1
+    print_warning "No deb, rpm or Arch package for this distribution; installing the tar.gz instead."
+    print_warning "To use a package, re-run with --format deb, --format rpm or --format arch."
+    echo "tar"
 }
 
 # File extension for a package format
@@ -125,7 +127,8 @@ format_extension() {
         deb) echo "deb" ;;
         rpm) echo "rpm" ;;
         arch) echo "pkg.tar.zst" ;;
-        *) print_error "Unknown package format: $1 (expected deb, rpm or arch)"; exit 1 ;;
+        tar) echo "tar.gz" ;;
+        *) print_error "Unknown package format: $1 (expected deb, rpm, arch or tar)"; exit 1 ;;
     esac
 }
 
@@ -135,8 +138,10 @@ get_sudo_cmd() {
         echo ""
     elif command -v sudo >/dev/null 2>&1; then
         echo "sudo"
+    elif command -v doas >/dev/null 2>&1; then
+        echo "doas"
     else
-        print_error "Installing a package needs root, and sudo is not available."
+        print_error "Installing a package needs root, and neither sudo nor doas is available."
         print_error "Run this script as root or install sudo."
         exit 1
     fi
@@ -170,7 +175,37 @@ install_package() {
         arch)
             $sudo_cmd pacman -U --noconfirm --needed "$file"
             ;;
+        tar)
+            install_tarball "$file" "$sudo_cmd"
+            ;;
     esac
+}
+
+# Extract the tar.gz next to it and run its install.sh, which puts the files
+# under /usr/local and starts the service with systemd or OpenRC.
+install_tarball() {
+    file="$1"
+    sudo_cmd="$2"
+
+    if ldd --version 2>&1 | grep -qi musl; then
+        print_warning "This system uses musl; Pangolin needs glibc 2.35 or newer and may not start."
+    fi
+
+    dir=$(dirname "$file")
+    tar -xzf "$file" -C "$dir"
+    installer="${dir}/$(basename "$file" .tar.gz)/install.sh"
+    if [ ! -x "$installer" ]; then
+        print_error "The archive has no install.sh: $file"
+        exit 1
+    fi
+    $sudo_cmd "$installer"
+
+    # The app needs GTK 3 and WebKitGTK 4.1, which only the packages pull in.
+    libs=$( (ldconfig -p || /sbin/ldconfig -p) 2>/dev/null || true)
+    if [ -n "$libs" ] && ! printf '%s' "$libs" | grep -q 'libwebkit2gtk-4\.1\.so'; then
+        print_warning "WebKitGTK 4.1 was not found. Install it with your package manager"
+        print_warning "(Gentoo: net-libs/webkit-gtk:4.1, Void: libwebkit2gtk41) before opening Pangolin."
+    fi
 }
 
 # Parse arguments
@@ -184,7 +219,7 @@ parse_args() {
             --version) VERSION="${2:-}"; shift ;;
             --version=*) VERSION="${1#--version=}" ;;
             -h|--help)
-                echo "Usage: get-linux.sh [--format deb|rpm|arch] [--version X.Y.Z]"
+                echo "Usage: get-linux.sh [--format deb|rpm|arch|tar] [--version X.Y.Z]"
                 exit 0
                 ;;
             *) print_warning "Ignoring unknown argument: $1" ;;
@@ -208,7 +243,11 @@ main() {
         FORMAT=$(detect_format)
     fi
     EXTENSION=$(format_extension "$FORMAT")
-    print_status "Detected platform: ${FORMAT} package for ${ARCH}"
+    if [ "$FORMAT" = tar ]; then
+        print_status "Detected platform: tar.gz for ${ARCH}"
+    else
+        print_status "Detected platform: ${FORMAT} package for ${ARCH}"
+    fi
 
     if [ -z "$VERSION" ]; then
         print_status "Fetching latest version..."
@@ -242,7 +281,8 @@ main() {
     fi
     install_package "$FORMAT" "$package_file" "$SUDO_CMD"
 
-    if command -v pangolin-client >/dev/null 2>&1 || [ -x /usr/bin/pangolin-client ]; then
+    if command -v pangolin-client >/dev/null 2>&1 || [ -x /usr/bin/pangolin-client ] ||
+        [ -x /usr/local/bin/pangolin-client ]; then
         print_status "Pangolin ${VERSION} installed successfully!"
         print_status "Open Pangolin from your applications menu, then log in from the tray icon."
     else
