@@ -1,0 +1,29 @@
+#!/sbin/openrc-run
+# OpenRC service for the Pangolin client daemon, the counterpart of
+# pangolin-client.service on systems without systemd (Gentoo, Alpine, Artix,
+# ...). The tar.gz release's install.sh installs it as
+# /etc/init.d/pangolin-client and rewrites the binary path for its PREFIX.
+
+description="Pangolin client background service"
+
+command=/usr/bin/pangolin-client
+command_args="--daemon"
+command_background=true
+pidfile="/run/${RC_SVCNAME}.pid"
+# SIGTERM lets the daemon stop each tunnel cleanly so DNS and routes are
+# restored, as TimeoutStopSec does in the systemd unit.
+retry="TERM/45/KILL/5"
+
+depend() {
+	need net
+	use dns logger
+	after firewall
+}
+
+# The directories systemd creates from RuntimeDirectory, StateDirectory and
+# LogsDirectory.
+start_pre() {
+	checkpath -d -m 0755 -o root:root /run/pangolin-client
+	checkpath -d -m 0700 -o root:root /var/lib/pangolin-client
+	checkpath -d -m 0755 -o root:root /var/log/pangolin-client
+}

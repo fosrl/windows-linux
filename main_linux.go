@@ -19,9 +19,21 @@ const usage = `Usage: pangolin-client [--autostart]
        pangolin-client --tunnel <config.json>
 `
 
-// daemonUnavailableWarning is shown when the UI can't reach the daemon.
-const daemonUnavailableWarning = "The Pangolin background service isn't running, so Pangolin can't connect " +
-	"or remember your sign-in.\n\nStart it with:\n\nsudo systemctl enable --now pangolin-client"
+// daemonUnavailableWarning is shown when the UI can't reach the daemon, with
+// the command to start the service under this system's init: systemd for the
+// packages, OpenRC or neither for the tar.gz's install.sh.
+func daemonUnavailableWarning() string {
+	start := "sudo systemctl enable --now pangolin-client"
+	if _, err := os.Stat("/run/systemd/system"); err != nil {
+		if _, err := os.Stat("/etc/init.d/pangolin-client"); err == nil {
+			start = "sudo rc-update add pangolin-client default\nsudo rc-service pangolin-client start"
+		} else {
+			start = "sudo pangolin-client --daemon"
+		}
+	}
+	return "The Pangolin background service isn't running, so Pangolin can't connect " +
+		"or remember your sign-in.\n\nStart it with:\n\n" + start
+}
 
 func main() {
 	setupLogging()
@@ -30,7 +42,7 @@ func main() {
 	args := os.Args[1:]
 	switch {
 	case len(args) == 1 && args[0] == "--daemon":
-		// Run by the pangolin-client systemd service.
+		// Run by the pangolin-client systemd or OpenRC service.
 		if err := managers.Run(); err != nil {
 			logger.Fatal("Daemon failed: %v", err)
 		}
@@ -76,7 +88,7 @@ func main() {
 		return
 	case err != nil:
 		logger.Error("Failed to connect to the Pangolin daemon: %v", err)
-		warning = daemonUnavailableWarning
+		warning = daemonUnavailableWarning()
 	default:
 		managers.InitializeIPCClient(reader, writer, events)
 		logger.Info("Connected to the Pangolin daemon")

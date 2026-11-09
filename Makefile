@@ -1,4 +1,4 @@
-.PHONY: build build-debug build-linux package-linux check-release-version install-linux uninstall-linux clean rsrc frontend bindings test help
+.PHONY: build build-debug build-linux package-linux package-linux-tarball check-release-version install-linux uninstall-linux clean rsrc frontend bindings test help
 
 # Variables
 BINARY_NAME=Pangolin
@@ -44,15 +44,38 @@ build-linux: frontend
 	@echo "Build complete: $(BUILD_DIR)/$(LINUX_BINARY_NAME)"
 
 # Build the deb, rpm and Arch packages from the Linux binary with nfpm
-# (https://nfpm.goreleaser.com), as build/pangolin-client-<arch>-<version>.*.
-# The in-app updater looks for these names in the release manifest.
-package-linux: check-release-version build-linux
+# (https://nfpm.goreleaser.com), as build/pangolin-client-<arch>-<version>.*,
+# and the tar.gz below. The in-app updater looks for the package names in the
+# release manifest.
+package-linux: check-release-version build-linux package-linux-tarball
 	@for fmt in deb rpm archlinux; do \
 		case $$fmt in deb) ext=deb;; rpm) ext=rpm;; archlinux) ext=pkg.tar.zst;; esac; \
 		out=$(BUILD_DIR)/$(LINUX_BINARY_NAME)-$(LINUX_GOARCH)-$(VERSION).$$ext; \
 		VERSION=$(VERSION) GOARCH=$(LINUX_GOARCH) BINARY=$(BUILD_DIR)/$(LINUX_BINARY_NAME) \
 			$(NFPM) pkg -f $(LINUX_PKG_DIR)/nfpm.yaml -p $$fmt -t $$out || exit 1; \
 	done
+
+# Build build/pangolin-client-<arch>-<version>.tar.gz for distributions with
+# no package (Gentoo, Void, ...): the binary and everything the packages
+# install, laid out as in the packages, plus the OpenRC service and an
+# install.sh that puts them in place (packaging/linux/tarball/).
+package-linux-tarball: check-release-version build-linux
+	@name=$(LINUX_BINARY_NAME)-$(LINUX_GOARCH)-$(VERSION); \
+	root=$(BUILD_DIR)/tarball; dir=$$root/$$name; \
+	rm -rf $$root && \
+	install -Dm755 $(BUILD_DIR)/$(LINUX_BINARY_NAME) $$dir/bin/$(LINUX_BINARY_NAME) && \
+	install -Dm755 -t $$dir $(LINUX_PKG_DIR)/tarball/install.sh && \
+	install -Dm644 -t $$dir $(LINUX_PKG_DIR)/tarball/README.md LICENSE && \
+	install -Dm644 -t $$dir/share/applications $(LINUX_PKG_DIR)/pangolin-client.desktop && \
+	install -Dm644 -t $$dir/share/icons/hicolor/256x256/apps $(LINUX_PKG_DIR)/pangolin-client.png && \
+	install -Dm644 -t $$dir/share/gnome-shell/extensions/$(GNOME_EXTENSION_UUID) $(LINUX_PKG_DIR)/gnome-shell-extension/$(GNOME_EXTENSION_UUID)/* && \
+	install -Dm644 -t $$dir/share/polkit-1/actions $(LINUX_PKG_DIR)/net.pangolin.client.policy && \
+	install -Dm644 -t $$dir/etc/xdg/autostart $(LINUX_PKG_DIR)/pangolin-client-autostart.desktop && \
+	install -Dm644 -t $$dir/lib/systemd/system $(LINUX_PKG_DIR)/pangolin-client.service && \
+	install -Dm755 -t $$dir/etc/init.d $(LINUX_PKG_DIR)/openrc/pangolin-client && \
+	tar -C $$root --sort=name --owner=0 --group=0 --numeric-owner -czf $(BUILD_DIR)/$$name.tar.gz $$name && \
+	rm -rf $$root && \
+	echo "Archive: $(BUILD_DIR)/$$name.tar.gz"
 
 # Release packages need a real X.Y.Z version, not "dev".
 check-release-version:
@@ -119,7 +142,8 @@ help:
 	@echo "  make build       - Build the Windows executable to build/ (GUI mode, no console)"
 	@echo "  make build-debug - Build with Wails devtools enabled"
 	@echo "  make build-linux - Build the Linux binary to build/ (needs gtk3, webkit2gtk-4.1)"
-	@echo "  make package-linux - Build the deb, rpm and Arch packages with nfpm"
+	@echo "  make package-linux - Build the deb, rpm and Arch packages with nfpm, and the tar.gz"
+	@echo "  make package-linux-tarball - Build only the tar.gz for distributions without a package"
 	@echo "  make install-linux - Install the Linux build and its systemd service (run as root)"
 	@echo "  make uninstall-linux - Remove what install-linux installed (run as root)"
 	@echo "  make frontend    - Build the webview frontend"
