@@ -16,7 +16,7 @@ This client can be used with both:
 ## Compatibility
 
 - Windows: Compatible with Windows 10+
-- Linux: Packages for Ubuntu 22.04+, Debian 12+, Fedora, openSUSE, and Arch Linux. Other distributions (Gentoo, Void, ...) can use the `.tar.gz` with its `install.sh`, which supports systemd and OpenRC and needs glibc 2.35+, GTK 3, and WebKitGTK 4.1. To install on any of these, run `curl -fsSL https://static.pangolin.net/get-linux.sh | sh`.
+- Linux: Packages for Ubuntu 22.04+, Debian 12+, Fedora, openSUSE, and Arch Linux. Other distributions (Gentoo, Void, ...) can use the `.tar.gz` with its `install.sh`, which supports systemd and OpenRC and needs glibc 2.35+, GTK 3, and WebKitGTK 4.1.
 
 ## Documentation
 
