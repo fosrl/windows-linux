@@ -67,6 +67,21 @@ static int pangolinPointer(int *x, int *y) {
 	return 1;
 }
 
+static int pangolinMonitorCount(void) {
+	GdkDisplay *d = gdk_display_get_default();
+	return d ? gdk_display_get_n_monitors(d) : 0;
+}
+
+static int pangolinMonitor(int i, GdkRectangle *geo, GdkRectangle *work, int *primary) {
+	GdkDisplay *d = gdk_display_get_default();
+	GdkMonitor *m = d ? gdk_display_get_monitor(d, i) : NULL;
+	if (!m) return 0;
+	gdk_monitor_get_geometry(m, geo);
+	gdk_monitor_get_workarea(m, work);
+	*primary = gdk_monitor_is_primary(m);
+	return 1;
+}
+
 static void pangolinPreferDark(int dark) {
 	GtkSettings *s = gtk_settings_get_default();
 	if (s) g_object_set(s, "gtk-application-prefer-dark-theme", dark ? TRUE : FALSE, NULL);
@@ -140,6 +155,42 @@ func pointerPosition() (int, int, bool) {
 	var x, y, ok C.int
 	application.InvokeSync(func() { ok = C.pangolinPointer(&x, &y) })
 	return int(x), int(y), ok != 0
+}
+
+// monitor is one monitor's geometry and work area in GTK units.
+type monitor struct {
+	Bounds   application.Rect
+	WorkArea application.Rect
+	Primary  bool
+}
+
+// monitors returns the current monitors, primary first. It asks GDK each
+// time: Wails reads the screens once at startup and never again, so its list
+// goes stale when monitors change, or when the session starts the app before
+// the display layout is applied.
+func monitors() []monitor {
+	var list []monitor
+	application.InvokeSync(func() {
+		n := int(C.pangolinMonitorCount())
+		for i := 0; i < n; i++ {
+			var geo, work C.GdkRectangle
+			var primary C.int
+			if C.pangolinMonitor(C.int(i), &geo, &work, &primary) == 0 {
+				continue
+			}
+			m := monitor{
+				Bounds:   application.Rect{X: int(geo.x), Y: int(geo.y), Width: int(geo.width), Height: int(geo.height)},
+				WorkArea: application.Rect{X: int(work.x), Y: int(work.y), Width: int(work.width), Height: int(work.height)},
+				Primary:  primary != 0,
+			}
+			if m.Primary {
+				list = append([]monitor{m}, list...)
+			} else {
+				list = append(list, m)
+			}
+		}
+	})
+	return list
 }
 
 func setPopupHints(w application.Window) {

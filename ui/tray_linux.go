@@ -183,11 +183,11 @@ func trayClickPoint() (application.Point, bool) {
 		}
 	}
 	if !ok {
-		screen := app.Screen.GetPrimary()
-		if screen == nil {
+		mons := monitors()
+		if len(mons) == 0 {
 			return application.Point{}, false
 		}
-		w := screen.WorkArea
+		w := mons[0].WorkArea
 		click = application.Point{X: w.X + w.Width - 1, Y: w.Y + w.Height - 1}
 	}
 	return application.Point{X: toCSS(click.X, scale), Y: toCSS(click.Y, scale)}, true
@@ -201,19 +201,17 @@ func trayWorkArea(cursor application.Point) (trayRect, float32) {
 	trayGeomMu.Unlock()
 	nx, ny := toGTK(cursor.X, scale), toGTK(cursor.Y, scale)
 
-	var screen *application.Screen
-	for _, s := range app.Screen.GetAll() {
-		b := s.Bounds
+	mons := monitors()
+	if len(mons) == 0 {
+		return trayRect{X: 0, Y: 0, Width: 1920, Height: 1080}, 1
+	}
+	screen := mons[0]
+	for _, m := range mons {
+		b := m.Bounds
 		if nx >= b.X && nx < b.X+b.Width && ny >= b.Y && ny < b.Y+b.Height {
-			screen = s
+			screen = m
 			break
 		}
-	}
-	if screen == nil {
-		screen = app.Screen.GetPrimary()
-	}
-	if screen == nil {
-		return trayRect{X: 0, Y: 0, Width: 1920, Height: 1080}, 1
 	}
 	w := screen.WorkArea
 	x, y := toCSS(w.X, scale), toCSS(w.Y, scale)
