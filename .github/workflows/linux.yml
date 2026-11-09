@@ -1,7 +1,8 @@
 name: Linux release
 
 # On a linux-X.Y.Z (or linux-X.Y.Z-rc.N) tag, builds the Linux packages (deb,
-# rpm, Arch for amd64 and arm64), makes the signed update manifest, and
+# rpm, Arch, and a tar.gz with install.sh for other distributions, for amd64
+# and arm64), makes the signed update manifest of the packages, and
 # attaches everything to a draft GitHub release for the tag. The version
 # stamped into the build is the tag without its "linux-" prefix. Windows
 # releases are tagged windows-X.Y.Z (windows.yml).
@@ -107,6 +108,7 @@ jobs:
             build/pangolin-client-*.deb
             build/pangolin-client-*.rpm
             build/pangolin-client-*.pkg.tar.zst
+            build/pangolin-client-*.tar.gz
           if-no-files-found: error
 
   # ---------------------------------------------------------------------------
@@ -159,5 +161,6 @@ jobs:
             build/pangolin-client-*.deb
             build/pangolin-client-*.rpm
             build/pangolin-client-*.pkg.tar.zst
+            build/pangolin-client-*.tar.gz
             build/linux-latest.sig
             build/linux-filelist.txt
