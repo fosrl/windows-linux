@@ -5,7 +5,10 @@ import { isLinux, report, urls, useEvent } from "../lib";
 
 const defaultMTU = "1280";
 
-type EditField = "primaryDns" | "secondaryDns" | "mtu";
+type EditField = "primaryDns" | "secondaryDns" | "mtu" | "deviceName";
+
+/** The outcome of renaming the device on the server, shown under its row. */
+type DeviceNameStatus = { text: string; kind: string };
 type Scope = "global" | "org";
 
 /** The settings that can differ per org. The rest apply to the whole app. */
@@ -23,6 +26,7 @@ export function PreferencesTab({ initial }: { initial: Settings }) {
   const [form, setForm] = useState<Settings>(initial);
   const [editing, setEditing] = useState<EditField | null>(null);
   const [askingScope, setAskingScope] = useState(false);
+  const [deviceNameStatus, setDeviceNameStatus] = useState<DeviceNameStatus | null>(null);
   const resolveScope = useRef<(scope: Scope | null) => void>(() => {});
   const formRef = useRef(form);
   formRef.current = form;
@@ -61,13 +65,22 @@ export function PreferencesTab({ initial }: { initial: Settings }) {
     const scope = await scopeFor(prev, patch);
     if (scope === null) {
       setForm(prev);
-      return { settings: prev, field: "", error: "" };
+      return { settings: prev, field: "", error: "", deviceNameStatus: "", deviceNameStatusKind: "" };
     }
     const result = await PreferencesService.Update(next, scope);
     setForm(result.settings);
     return result;
   };
   const toggle = (patch: Partial<Settings>) => report(apply(patch));
+  /** Saves the device name, which also renames the device on the server. */
+  const applyDeviceName = async (deviceName: string): Promise<SettingsResult> => {
+    setDeviceNameStatus(null);
+    const result = await apply({ deviceName });
+    if (result.deviceNameStatus) {
+      setDeviceNameStatus({ text: result.deviceNameStatus, kind: result.deviceNameStatusKind });
+    }
+    return result;
+  };
   const resetOrg = () => report(PreferencesService.ResetOrg().then(setForm));
 
   return (
@@ -108,6 +121,31 @@ export function PreferencesTab({ initial }: { initial: Settings }) {
               // Connect at start implies start at login.
               onChange={(v) => toggle({ autoConnect: v, openAtLogin: v ? true : form.openAtLogin })}
             />
+          </Row>
+          <Row
+            title="Device Name"
+            description={
+              deviceNameStatus ? (
+                <span
+                  className={
+                    deviceNameStatus.kind === "error"
+                      ? "text-mac-danger"
+                      : deviceNameStatus.kind === "warning"
+                        ? "text-mac-warning"
+                        : undefined
+                  }
+                >
+                  {deviceNameStatus.text}
+                </span>
+              ) : (
+                "How this device is named on the server. Uses the computer's name unless you set one."
+              )
+            }
+          >
+            <Value>{form.deviceName || form.deviceNameDefault}</Value>
+            <Button size="small" disabled={disabled} onClick={() => setEditing("deviceName")}>
+              Set...
+            </Button>
           </Row>
         </Section>
 
@@ -208,6 +246,20 @@ export function PreferencesTab({ initial }: { initial: Settings }) {
           onClose={() => setEditing(null)}
           onSave={(v) => apply({ mtu: v })}
           field="mtu"
+        />
+      )}
+      {editing === "deviceName" && (
+        <ValueSheet
+          title="Device Name:"
+          initial={form.deviceName}
+          placeholder={form.deviceNameDefault}
+          hint={`Leave empty to use this computer's name (${form.deviceNameDefault}). At most 255 characters. Renaming the device on the server needs an administrator.`}
+          resetLabel="Use Computer Name"
+          resetValue=""
+          resetSaves
+          onClose={() => setEditing(null)}
+          onSave={applyDeviceName}
+          field="deviceName"
         />
       )}
       {(editing === "primaryDns" || editing === "secondaryDns") && (
