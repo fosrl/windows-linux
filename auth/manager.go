@@ -67,6 +67,16 @@ type AuthManager struct {
 	sessionExpired             bool
 	isDeviceAuthInProgress     bool
 	startDeviceAuthImmediately bool
+
+	// deviceNameMigrating is held while a background device rename runs.
+	deviceNameMigrating sync.Mutex
+	// deviceNameRenaming serializes renames on the server, so a background
+	// rename can't overwrite a name the user just chose.
+	deviceNameRenaming sync.Mutex
+	// cancelMigration stops the running background rename (nil if none);
+	// guarded by cancelMigrationMu.
+	cancelMigrationMu sync.Mutex
+	cancelMigration   context.CancelFunc
 }
 
 // NewAuthManager creates a new AuthManager instance
@@ -715,6 +725,7 @@ func (am *AuthManager) EnsureOlmCredentials(userId string) error {
 			switch {
 			case err == nil && olm != nil && olm.OlmId == olmIdString:
 				logger.Info("Auth: OLM credentials verified (userId=%s)", userId)
+				am.startDeviceNameMigration(userId)
 				return nil
 			case err == nil && olm != nil:
 				logger.Error("Auth: OLM ID mismatch (userId=%s, server=%s, stored=%s)", userId, olm.OlmId, olmIdString)
@@ -747,6 +758,8 @@ func (am *AuthManager) EnsureOlmCredentials(userId string) error {
 			return errors.New("failed to save OLM credentials")
 		}
 		logger.Info("Auth: recovered OLM credentials (userId=%s)", userId)
+		// Recovery reuses the device's olm, which keeps its old name.
+		am.startDeviceNameMigration(userId)
 		return nil
 	}
 	if !isNotFoundError(err) {
