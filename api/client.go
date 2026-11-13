@@ -2,6 +2,7 @@ package api
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -169,6 +170,12 @@ func (c *APIClient) apiURL(path string) (string, error) {
 
 // makeRequest makes an HTTP request and returns the response data and status
 func (c *APIClient) makeRequest(method, path string, body []byte) ([]byte, *http.Response, error) {
+	return c.makeRequestContext(context.Background(), method, path, body)
+}
+
+// makeRequestContext is makeRequest bounded by ctx: cancelling ctx aborts the
+// request (the error then wraps ctx.Err()).
+func (c *APIClient) makeRequestContext(ctx context.Context, method, path string, body []byte) ([]byte, *http.Response, error) {
 	fullURL, err := c.apiURL(path)
 	if err != nil {
 		return nil, nil, err
@@ -179,7 +186,7 @@ func (c *APIClient) makeRequest(method, path string, body []byte) ([]byte, *http
 		bodyReader = bytes.NewReader(body)
 	}
 
-	req, err := http.NewRequest(method, fullURL, bodyReader)
+	req, err := http.NewRequestWithContext(ctx, method, fullURL, bodyReader)
 	if err != nil {
 		return nil, nil, &APIError{Type: ErrorTypeInvalidURL, Err: err}
 	}
