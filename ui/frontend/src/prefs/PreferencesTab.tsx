@@ -86,6 +86,13 @@ export function PreferencesTab({ initial }: { initial: Settings }) {
             {(form.managed ?? []).length > 0 && " Settings set by your organization can't be changed."}
           </div>
         )}
+        {form.orgMode && (
+          <div className="flex justify-start">
+            <Button disabled={disabled} onClick={resetOrg}>
+              Use Global Settings for {form.orgName}
+            </Button>
+          </div>
+        )}
 
         <Section header="General">
           <Row title="Start at Login" description={`Starts Pangolin when you sign in${isLinux ? "" : " to Windows"}.`}>
@@ -189,13 +196,6 @@ export function PreferencesTab({ initial }: { initial: Settings }) {
           <LinkRow href={urls.configureClient}>See docs for more info on these settings</LinkRow>
         </Section>
 
-        {form.orgMode && (
-          <div className="flex justify-end">
-            <Button disabled={disabled} onClick={resetOrg}>
-              Use Global Settings for {form.orgName}
-            </Button>
-          </div>
-        )}
       </Form>
 
       {editing === "mtu" && (
