@@ -189,8 +189,8 @@ func (am *AuthManager) LoginWithDeviceAuth(ctx context.Context, hostnameOverride
 		loginClient = am.apiClient
 	}
 
-	// Get friendly device name (e.g., "Windows Laptop" or "Windows Desktop")
-	deviceName := config.GetFriendlyDeviceName()
+	// The name the user set, or else the computer's hostname
+	deviceName := am.configManager.EffectiveDeviceName()
 
 	// Start device auth
 	startResponse, err := loginClient.StartDeviceAuth("Pangolin "+version.OSDisplayName+" Client", &deviceName)
@@ -755,7 +755,7 @@ func (am *AuthManager) EnsureOlmCredentials(userId string) error {
 	}
 	logger.Info("Auth: no OLM matches this device fingerprint, creating a new one (userId=%s)", userId)
 
-	deviceName := config.GetFriendlyDeviceName()
+	deviceName := am.configManager.EffectiveDeviceName()
 	olmResponse, err := am.apiClient.CreateOlm(userId, deviceName)
 	if err != nil {
 		logger.Error("Auth: failed to create OLM (userId=%s): %v", userId, err)
