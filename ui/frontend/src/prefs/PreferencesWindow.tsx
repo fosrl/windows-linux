@@ -38,6 +38,18 @@ export function PreferencesWindow() {
     report(PreferencesService.Opened().then(onOpened));
   }, []);
   useEvent<PrefsOpened>("prefs:opened", onOpened);
+  // The backend polls the server's settings while the Preferences tab is
+  // showing (and the window is open) and pushes changes here.
+  useEvent<Settings>("prefs:settings", setSettings);
+  useEffect(() => {
+    report(PreferencesService.SetSettingsActive(tab === 0));
+  }, [tab]);
+  // Fetch the server's settings whenever the window opens or the tab is
+  // selected. The result is returned rather than sent as an event, so it can't
+  // be missed while the window is loading or the tab is remounting.
+  useEffect(() => {
+    if (tab === 0 && openCount > 0) report(PreferencesService.Refresh().then(setSettings));
+  }, [tab, openCount]);
 
   return (
     <div className="flex h-full min-w-0">

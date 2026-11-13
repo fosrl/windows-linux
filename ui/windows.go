@@ -436,9 +436,9 @@ func showPreferencesWindow(tab int, login *LoginRequest) {
 		prefsVisible.Store(true)
 		startStatusPolling()
 		startLogTail()
+		updateServerSettingsPolling()
 	}
 	prefsWindow.EmitEvent("prefs:opened", currentPrefsOpened())
-	go refreshPreferencesServerSettings()
 	prefsWindow.Show()
 	if prefsWindow.IsMinimised() {
 		prefsWindow.Restore()
@@ -458,6 +458,7 @@ func hidePreferencesWindow() {
 		prefsVisible.Store(false)
 		stopStatusPolling()
 		stopLogTail()
+		updateServerSettingsPolling()
 	}
 }
 

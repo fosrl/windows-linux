@@ -194,6 +194,8 @@ export const PreferencesService = {
       return ok({ settings: { ...settings, mtu: "1280" }, field: "mtu", error: "Enter an integer between 576 and 9000 (e.g., 1280)" });
     return ok({ settings: { ...settings }, field: "", error: "" });
   },
+  Refresh: () => ok({ ...settings }),
+  SetSettingsActive: (v: boolean) => ok(log("settings active", v)),
   ResetOrg: () => {
     settings.orgMode = false;
     return ok({ ...settings });

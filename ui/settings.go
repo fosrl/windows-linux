@@ -3,9 +3,12 @@ package ui
 import (
 	"fmt"
 	"net"
+	"reflect"
 	"slices"
 	"strconv"
 	"strings"
+	"sync"
+	"time"
 
 	"github.com/fosrl/newt/logger"
 	"github.com/fosrl/windows-linux/config"
@@ -101,20 +104,89 @@ func fetchServerSettings(orgID string) *config.ClientSettings {
 	return settings
 }
 
-// refreshPreferencesServerSettings re-fetches the server's settings when
-// Preferences opens and shows the result.
-func refreshPreferencesServerSettings() {
-	orgID, _ := currentOrgInfo()
-	if orgID == "" {
-		return
-	}
-	fetchServerSettings(orgID)
+// emitPreferencesSettings sends the current settings to the Preferences window
+// and refreshes the tray, which shows some of them (e.g. a locked exit node).
+func emitPreferencesSettings() {
 	prefsMu.Lock()
 	defer prefsMu.Unlock()
 	if prefsWindow != nil {
 		prefsWindow.EmitEvent("prefs:settings", currentSettings())
 	}
 	publish()
+}
+
+// refreshPreferencesServerSettings re-fetches the server's settings and returns
+// the settings to show. The frontend asks for this when Preferences opens or
+// its tab is selected, and uses the return value rather than an event, which it
+// could miss while the window is still loading.
+func refreshPreferencesServerSettings() Settings {
+	if orgID, _ := currentOrgInfo(); orgID != "" {
+		fetchServerSettings(orgID)
+		publish()
+	}
+	return currentSettings()
+}
+
+// serverSettingsPollInterval is how often the server's settings are re-fetched
+// while the Preferences tab is on screen.
+const serverSettingsPollInterval = 10 * time.Second
+
+var (
+	settingsPollMu sync.Mutex
+	// settingsTabActive is set while the Preferences tab is the selected tab.
+	settingsTabActive bool
+	// settingsPollQuit stops the poll; nil while it isn't running.
+	settingsPollQuit chan struct{}
+)
+
+// setPreferencesTabActive records whether the Preferences tab is the selected
+// tab of the Preferences window.
+func setPreferencesTabActive(active bool) {
+	settingsPollMu.Lock()
+	settingsTabActive = active
+	settingsPollMu.Unlock()
+	updateServerSettingsPolling()
+}
+
+// updateServerSettingsPolling starts or stops the poll so it runs only while
+// the Preferences window is shown on the Preferences tab. Call it whenever
+// either changes.
+func updateServerSettingsPolling() {
+	settingsPollMu.Lock()
+	defer settingsPollMu.Unlock()
+	want := settingsTabActive && prefsVisible.Load()
+	switch {
+	case want && settingsPollQuit == nil:
+		settingsPollQuit = make(chan struct{})
+		go pollServerSettings(settingsPollQuit)
+	case !want && settingsPollQuit != nil:
+		close(settingsPollQuit)
+		settingsPollQuit = nil
+	}
+}
+
+// pollServerSettings re-fetches the server's settings until quit is closed and
+// shows them when they change. The frontend fetches them itself when the window
+// opens or the tab is selected.
+func pollServerSettings(quit <-chan struct{}) {
+	ticker := time.NewTicker(serverSettingsPollInterval)
+	defer ticker.Stop()
+	for {
+		select {
+		case <-quit:
+			return
+		case <-ticker.C:
+		}
+		orgID, _ := currentOrgInfo()
+		if orgID == "" {
+			continue
+		}
+		before := currentSettings()
+		fetchServerSettings(orgID)
+		if !reflect.DeepEqual(before, currentSettings()) {
+			emitPreferencesSettings()
+		}
+	}
 }
 
 func managedFields(server *config.ClientSettings) []string {

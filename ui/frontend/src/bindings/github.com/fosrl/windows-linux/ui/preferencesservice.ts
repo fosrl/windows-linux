@@ -19,10 +19,25 @@ export function Opened(): $CancellablePromise<$models.PrefsOpened> {
 }
 
 /**
+ * Refresh re-fetches the server's settings and returns the settings to show.
+ */
+export function Refresh(): $CancellablePromise<$models.Settings> {
+    return $Call.ByID(790791138);
+}
+
+/**
  * ResetOrg makes the current org use the global settings again.
  */
 export function ResetOrg(): $CancellablePromise<$models.Settings> {
     return $Call.ByID(3873980668);
+}
+
+/**
+ * SetSettingsActive is called when the Preferences tab is selected or left, so
+ * the server's settings are only polled while it is on screen.
+ */
+export function SetSettingsActive(active: boolean): $CancellablePromise<void> {
+    return $Call.ByID(755925378, active);
 }
 
 /**

@@ -174,8 +174,15 @@ in effect because they're read via `LoadSystemConfig()` directly:
 `updateCheckIntervalSeconds` (min 3600), `logLevel`. Per-org overrides live in
 `orgs.<orgId>`; precedence when connecting is server client-settings (`GET
 /org/:orgId/my-client-settings`) > org section > global
-(`config/clientsettings.go` `EffectiveSettings`). `userSettingsDisabled` locks
-the Preferences form.
+(`config/clientsettings.go` `EffectiveSettings`). The server's settings are
+re-fetched on every connect (`tunnel.Manager.buildConfig`); by the Preferences
+window when it opens or its Preferences tab is selected
+(`PreferencesService.Refresh`, whose return value is used instead of an event
+so it can't be missed while the window loads); and every 10s while that tab is
+showing (`ui/settings.go` `pollServerSettings`, told about the selected tab by
+`PreferencesService.SetSettingsActive`, pushing changes with `prefs:settings`).
+`userSettingsDisabled` locks the
+Preferences form.
 
 The privileged process must read a user's config **for that user** (it can't use
 its own env): Windows reads the session token's `LOCALAPPDATA`

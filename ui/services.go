@@ -47,6 +47,13 @@ func (PreferencesService) Update(form Settings, scope string) SettingsResult {
 // ResetOrg makes the current org use the global settings again.
 func (PreferencesService) ResetOrg() Settings { return resetOrgSettings() }
 
+// Refresh re-fetches the server's settings and returns the settings to show.
+func (PreferencesService) Refresh() Settings { return refreshPreferencesServerSettings() }
+
+// SetSettingsActive is called when the Preferences tab is selected or left, so
+// the server's settings are only polled while it is on screen.
+func (PreferencesService) SetSettingsActive(active bool) { setPreferencesTabActive(active) }
+
 // StatusService backs the Status tab.
 type StatusService struct{}
 

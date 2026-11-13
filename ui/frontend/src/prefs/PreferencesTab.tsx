@@ -1,7 +1,7 @@
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { PreferencesService, type Settings, type SettingsResult } from "@bindings";
 import { Button, Form, LinkRow, Row, Section, Sheet, Switch, TextField, Value } from "../components/controls";
-import { isLinux, report, urls, useEvent } from "../lib";
+import { isLinux, report, urls } from "../lib";
 
 const defaultMTU = "1280";
 
@@ -27,8 +27,8 @@ export function PreferencesTab({ initial }: { initial: Settings }) {
   const formRef = useRef(form);
   formRef.current = form;
   const disabled = form.disabled;
-  // The server's settings are re-fetched each time the window opens.
-  useEvent<Settings>("prefs:settings", setForm);
+  // The window re-fetches the server's settings and passes them down as `initial`.
+  useEffect(() => setForm(initial), [initial]);
 
   /** Whether a setting is read-only, because of an administrator or the org's server. */
   const locked = (field: keyof Settings) => disabled || (form.managed ?? []).includes(field);
