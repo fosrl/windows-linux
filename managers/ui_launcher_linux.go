@@ -138,6 +138,25 @@ func WaitForUpdateInstall(timeout time.Duration) bool {
 	return false
 }
 
+// WaitForDaemon blocks until the daemon's socket answers and it is not
+// installing an update. A UI that started while the daemon was down (a package
+// upgrade or service restart in progress) uses it to notice the daemon coming
+// back. It returns false if stop is closed first.
+func WaitForDaemon(stop <-chan struct{}) bool {
+	ticker := time.NewTicker(updatePollInterval)
+	defer ticker.Stop()
+	for {
+		select {
+		case <-stop:
+			return false
+		case <-ticker.C:
+			if installing, err := updateInstalling(); err == nil && !installing {
+				return true
+			}
+		}
+	}
+}
+
 func updateInstalling() (bool, error) {
 	conn, err := dialDaemon()
 	if err != nil {

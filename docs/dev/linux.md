@@ -63,6 +63,15 @@ the start command for this system's init (`daemonUnavailableWarning`: systemd,
 OpenRC, or `sudo pangolin-client --daemon`). Sign-in can't persist without the
 daemon.
 
+That UI polls the daemon (`managers.WaitForDaemon`, the `Q` request, every 2s)
+and, once it answers, re-execs itself (`restartWhenDaemonReturns`) so it
+attaches normally. Without this, a UI started during a package upgrade or
+service restart stayed disconnected for good and sign-in failed with "failed to
+save session token". `PANGOLIN_UI_RECONNECTED=1` is set on the re-exec so a
+daemon that is up but refuses the attach can't cause a restart loop. A daemon
+that dies without sending the stopping notification still leaves a connected UI
+with a dead IPC; that case isn't handled.
+
 ### UI detach handling
 
 When the UI's IPC connection closes (`IPCServerListen` returns `done`):

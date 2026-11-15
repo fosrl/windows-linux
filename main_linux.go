@@ -89,6 +89,13 @@ func main() {
 	case err != nil:
 		logger.Error("Failed to connect to the Pangolin daemon: %v", err)
 		warning = daemonUnavailableWarning()
+		// Without the daemon this UI can't save sign-ins, and it never gets
+		// the IPC connection later. Restart it once the daemon is back. The
+		// env var stops a restart loop if the daemon is up but keeps
+		// refusing the attach.
+		if os.Getenv(reconnectedEnv) == "" {
+			go restartWhenDaemonReturns()
+		}
 	default:
 		managers.InitializeIPCClient(reader, writer, events)
 		logger.Info("Connected to the Pangolin daemon")
@@ -111,13 +118,29 @@ func waitForUpdateThenRestart() {
 	if !managers.WaitForUpdateInstall(updateInstallTimeout) {
 		logger.Error("Timed out waiting for the update to install")
 	}
+	restartSelf("Update finished")
+}
+
+// reconnectedEnv marks a UI restarted by restartWhenDaemonReturns.
+const reconnectedEnv = "PANGOLIN_UI_RECONNECTED"
+
+// restartWhenDaemonReturns waits for the daemon to become reachable, then
+// starts this program again in place of this process so it attaches normally.
+func restartWhenDaemonReturns() {
+	managers.WaitForDaemon(nil)
+	os.Setenv(reconnectedEnv, "1")
+	restartSelf("The Pangolin daemon is back")
+}
+
+// restartSelf replaces this process with a fresh copy of the program.
+func restartSelf(reason string) {
 	exe, err := os.Executable()
 	if err != nil {
-		logger.Error("Failed to restart after the update: %v", err)
+		logger.Error("Failed to restart: %v", err)
 		return
 	}
-	logger.Info("Update finished; starting %s again", exe)
+	logger.Info("%s; starting %s again", reason, exe)
 	if err := syscall.Exec(exe, os.Args, os.Environ()); err != nil {
-		logger.Error("Failed to restart after the update: %v", err)
+		logger.Error("Failed to restart: %v", err)
 	}
 }
