@@ -1,7 +1,7 @@
 @echo off
 REM Build MSI installer for Pangolin
 REM This script creates the MSI installer from an already-built executable
-REM (make build VERSION=X.Y.Z).
+REM (make build-windows VERSION=X.Y.Z).
 REM Usage: scripts\build-msi.bat X.Y.Z
 REM The MSI ProductVersion must be numeric, so any -suffix (e.g. -rc.1) is
 REM dropped from the installer version; the file name keeps the full version.

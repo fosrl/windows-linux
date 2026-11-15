@@ -1,4 +1,4 @@
-.PHONY: build build-debug build-linux package-linux package-linux-tarball check-release-version install-linux uninstall-linux clean rsrc frontend bindings test help
+.PHONY: build-windows build-windows-debug build-linux package-linux package-linux-tarball check-release-version install-linux uninstall-linux clean rsrc frontend bindings test help
 
 # Variables
 BINARY_NAME=Pangolin
@@ -19,18 +19,18 @@ OLM_VERSION := $(shell go list -m -f '{{.Version}}' github.com/fosrl/olm | sed '
 VERSION_LDFLAGS = -X github.com/fosrl/windows-linux/version.Number=$(VERSION) -X github.com/fosrl/windows-linux/version.OlmVersionOverride=$(OLM_VERSION)
 
 # Default target
-all: clean rsrc build
+all: clean rsrc build-windows
 
 # Build the Windows executable (GUI mode - no console).
 # The "production" tag turns off Wails' dev server and devtools.
-build: rsrc frontend
+build-windows: rsrc frontend
 	@echo "Building Windows executable (GUI mode)..."
 	@mkdir -p $(BUILD_DIR)
 	GOOS=$(GOOS) GOARCH=$(GOARCH) go build -tags production -ldflags="-s -w -H windowsgui $(VERSION_LDFLAGS)" -o $(BUILD_DIR)/$(BINARY_NAME).exe
 	@echo "Build complete: $(BUILD_DIR)/$(BINARY_NAME).exe"
 
 # Same as build, but keeps Wails devtools (right-click > Inspect) and debug logging
-build-debug: rsrc frontend
+build-windows-debug: rsrc frontend
 	@mkdir -p $(BUILD_DIR)
 	GOOS=$(GOOS) GOARCH=$(GOARCH) go build -ldflags="-H windowsgui $(VERSION_LDFLAGS)" -o $(BUILD_DIR)/$(BINARY_NAME).exe
 	@echo "Debug build complete: $(BUILD_DIR)/$(BINARY_NAME).exe"
@@ -139,8 +139,8 @@ clean:
 help:
 	@echo "Pass VERSION=X.Y.Z to stamp a release version (default: dev)"
 	@echo "Available targets:"
-	@echo "  make build       - Build the Windows executable to build/ (GUI mode, no console)"
-	@echo "  make build-debug - Build with Wails devtools enabled"
+	@echo "  make build-windows - Build the Windows executable to build/ (GUI mode, no console)"
+	@echo "  make build-windows-debug - Build with Wails devtools enabled"
 	@echo "  make build-linux - Build the Linux binary to build/ (needs gtk3, webkit2gtk-4.1)"
 	@echo "  make package-linux - Build the deb, rpm and Arch packages with nfpm, and the tar.gz"
 	@echo "  make package-linux-tarball - Build only the tar.gz for distributions without a package"

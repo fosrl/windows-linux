@@ -15,7 +15,7 @@ updates, packaging, testing, how-to recipes, and the decision history.
 
 ```sh
 make build-linux                     # build/pangolin-client (needs gtk3, webkit2gtk-4.1, cgo)
-make build VERSION=1.2.3             # build/Pangolin.exe (cross-compiles from Linux fine)
+make build-windows VERSION=1.2.3             # build/Pangolin.exe (cross-compiles from Linux fine)
 make test                            # go test -tags gtk3 ./...
 go vet -tags gtk3 ./...              # Linux vet
 GOOS=windows go vet -unsafeptr=false ./... && GOOS=windows go build -tags production -o /dev/null .

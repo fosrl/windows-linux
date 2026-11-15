@@ -81,7 +81,7 @@ The service (`/managerservice`, `managers/service_windows.go`):
 ## Release (CI: `.github/workflows/windows.yml`)
 
 Tag `windows-X.Y.Z` (or `-rc.N`) →
-1. `windows-build` (Ubuntu): `make build VERSION=…` cross-compiles
+1. `windows-build` (Ubuntu): `make build-windows VERSION=…` cross-compiles
    `Pangolin.exe` (`-H windowsgui`, `production` tag).
 2. `windows-sign` (windows-latest): jsign with DigiCert KeyLocker (secrets
    `SM_API_KEY`, `SM_CLIENT_CERT_FILE_B64`, `SM_CLIENT_CERT_PASSWORD`, var
