@@ -224,7 +224,7 @@ export function TrayMenu() {
       </div>
       {first?.items && path[0] && (
         <Submenu
-          key={path[0].id}
+          id={path[0].id}
           items={first.items}
           anchor={path[0].anchor}
           offset={firstOffset}
@@ -239,7 +239,7 @@ export function TrayMenu() {
       )}
       {second?.items && path[1] && (
         <Submenu
-          key={path[1].id}
+          id={path[1].id}
           items={second.items}
           anchor={path[1].anchor}
           offset={secondOffset}
@@ -334,6 +334,7 @@ function useMinimumDuration(active: boolean, ms: number) {
 }
 
 function Submenu({
+  id,
   items,
   anchor,
   offset,
@@ -345,6 +346,8 @@ function Submenu({
   onHoverRow,
   onWidth,
 }: {
+  // Which submenu this is. Switching to a sibling reuses the element.
+  id: string;
   items: MenuItem[];
   anchor: HTMLElement;
   offset: number;
@@ -357,6 +360,7 @@ function Submenu({
   onWidth?: (width: number) => void;
 }) {
   const ref = useRef<HTMLDivElement>(null);
+  const panelBoxRef = useRef<HTMLDivElement>(null);
   const [top, setTop] = useState(() => anchor.getBoundingClientRect().top - 6);
 
   // Line the first row up with the parent row, and keep following it while
@@ -387,6 +391,19 @@ function Submenu({
     if (ref.current) onWidth?.(ref.current.offsetWidth);
   }, [items, onWidth]);
 
+  // A sibling submenu replaces this one in place, so start it at the top.
+  useLayoutEffect(() => {
+    panelBoxRef.current?.scrollTo(0, 0);
+  }, [id]);
+
+  // Stop the entry animation before the element goes away. Removing a layer
+  // that is still animating can leave a ghost of the submenu in the
+  // transparent window (issue #90).
+  useLayoutEffect(() => {
+    const el = ref.current;
+    return () => el?.getAnimations().forEach((a) => a.cancel());
+  }, []);
+
   const side = layout.submenuSide === "left" ? { right: offset } : { left: offset };
 
   return (
@@ -396,7 +413,7 @@ function Submenu({
       style={{ ...side, top, width: "max-content", minWidth: submenuMinWidth, maxWidth: layout.panelWidth }}
       onMouseEnter={onEnter}
     >
-      <Panel maxHeight={`calc(100vh - ${2 * layout.padding}px)`}>
+      <Panel boxRef={panelBoxRef} maxHeight={`calc(100vh - ${2 * layout.padding}px)`}>
         <MenuRows
           items={items}
           activeSubmenu={activeSubmenu}
