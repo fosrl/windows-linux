@@ -15,7 +15,7 @@ import (
 
 const cloudHostname = "https://app.pangolin.net"
 
-// Steps of the add-account sheet in Preferences > Accounts, as in the macOS
+// Steps of the add-account sheet in Settings > Accounts, as in the macOS
 // app's AddAccountSheet.
 const (
 	loginStepServer   = "server"
@@ -310,6 +310,8 @@ func performLogin(s *loginSession, ctx context.Context, hostname string) {
 		}
 	})
 	publish()
+	// The new account is active now, with its own org.
+	refreshSettingsForCurrentOrg()
 }
 
 // loginBack cancels the login and returns to the server choice.

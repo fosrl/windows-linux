@@ -36,7 +36,7 @@ Wails v3.0.0's Linux tray was unusable for us: click coordinates private,
   with one item "Quit Pangolin".
 - `SetPassive(true)` while our GNOME extension is active, so there's one icon.
 - `HostAvailable()`: if after 5s there's no SNI host and no GNOME extension,
-  Preferences opens so the app is reachable (`startLinuxTray` in `ui/tray_linux.go`).
+  Settings opens so the app is reachable (`startLinuxTray` in `ui/tray_linux.go`).
 
 Wails' tray isn't used on Linux. Wails also has no `WindowHide` event on Linux;
 `afterTrayHide()` is called from the focus-lost handler instead.
@@ -59,7 +59,7 @@ only the DPI says how big things should be. When GTK scales by itself
 (`GDK_SCALE=2`), it reports unscaled DPI, so uiScale stays 1.
 `PANGOLIN_UI_SCALE=<0.5..4>` overrides it (useful for testing).
 
-All windows (Preferences, setup, update, CLI) get `scaleWindowOptions`: sizes
+All windows (Settings, setup, update, CLI) get `scaleWindowOptions`: sizes
 multiplied by uiScale and `Zoom` set.
 
 ## Placement pipeline

@@ -87,7 +87,7 @@ make build-windows VERSION=1.0.3
 This builds the frontend (`ui/frontend/dist`) and creates `build/Pangolin.exe`
 with the version set in `version.Number`.
 
-To preview the UI in a desktop browser without Windows, run `npm run mock` in `ui/frontend` and open `http://localhost:5173/#/tray`, `#/preferences`, `#/login` or `#/progress?kind=update`. Mock mode swaps the Go services for fake data.
+To preview the UI in a desktop browser without Windows, run `npm run mock` in `ui/frontend` and open `http://localhost:5173/#/tray`, `#/settings`, `#/login` or `#/progress?kind=update`. Mock mode swaps the Go services for fake data.
 
 ### 2. Build MSI Installers
 

@@ -45,7 +45,7 @@ const (
 	menuIDReAuth         = "reauth"
 	menuIDConnect        = "connect"
 	menuIDLogin          = "login"
-	menuIDPreferences    = "preferences"
+	menuIDSettings       = "settings"
 	menuIDQuit           = "quit"
 	menuIDOpenStatus     = "sites.openStatus"
 	menuIDHowItWorks     = "more.howItWorks"
@@ -251,7 +251,7 @@ func watermarkText(in menuInputs) string {
 
 // buildMenuState lays the menu out like the macOS menu bar panel
 // (MenuBarView.swift): tunnel, notices, account, organization, then
-// Preferences, More and Quit.
+// Settings, More and Quit.
 func buildMenuState(in menuInputs) MenuState {
 	var items []MenuItem
 
@@ -289,7 +289,7 @@ func buildMenuState(in menuInputs) MenuState {
 	}
 
 	items = append(items, separator())
-	items = append(items, item(menuIDPreferences, "Preferences…", true))
+	items = append(items, item(menuIDSettings, "Settings…", true))
 	items = append(items, moreSubmenu(in))
 	items = append(items, separator())
 	items = append(items, item(menuIDQuit, "Quit Pangolin", true))

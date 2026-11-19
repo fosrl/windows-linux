@@ -6,7 +6,7 @@ import { report, useEvent } from "../lib";
 import appIcon from "../assets/app_icon.svg";
 import { AddAccountSheet } from "./AddAccountSheet";
 
-// Preferences > Accounts, as in the macOS app's AccountsContentView: a welcome
+// Settings > Accounts, as in the macOS app's AccountsContentView: a welcome
 // screen until there is an account, then the list of accounts with Switch,
 // Log In… and Remove… on each row.
 

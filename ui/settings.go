@@ -20,12 +20,9 @@ const (
 	maxMTU = 9000
 )
 
-// settingsScopeOrg is the Update scope that saves a change to the current org's
-// section of pangolin.json; anything else saves to the global settings.
-const settingsScopeOrg = "org"
-
-// Settings is the Preferences tab form. The tunnel settings are what the
-// current org actually uses, so they aren't always the global values.
+// Settings is the form shared by the General and Connection tabs. The tunnel
+// settings are what the current org actually uses, so they aren't always the
+// values for all organizations.
 type Settings struct {
 	OpenAtLogin             bool   `json:"openAtLogin"`
 	AutoConnect             bool   `json:"autoConnect"`
@@ -45,14 +42,15 @@ type Settings struct {
 	Disabled bool `json:"disabled"`
 	// OrgName is the current org, empty if there is none.
 	OrgName string `json:"orgName"`
-	// OrgMode is set when the current org has its own settings.
+	// OrgMode is set when the current org has its own settings, so tunnel changes
+	// are saved only for it.
 	OrgMode bool `json:"orgMode"`
 	// Managed lists the fields above that the org's server sets, by JSON name.
 	Managed []string `json:"managed"`
 }
 
-// PrefsOpened is sent to the preferences window each time it is shown.
-type PrefsOpened struct {
+// SettingsOpened is sent to the settings window each time it is shown.
+type SettingsOpened struct {
 	Tab      int      `json:"tab"`
 	Settings Settings `json:"settings"`
 	// Login, when set, opens the add-account sheet on the Accounts tab.
@@ -104,22 +102,22 @@ func fetchServerSettings(orgID string) *config.ClientSettings {
 	return settings
 }
 
-// emitPreferencesSettings sends the current settings to the Preferences window
-// and refreshes the tray, which shows some of them (e.g. a locked exit node).
-func emitPreferencesSettings() {
-	prefsMu.Lock()
-	defer prefsMu.Unlock()
-	if prefsWindow != nil {
-		prefsWindow.EmitEvent("prefs:settings", currentSettings())
+// emitSettings sends the current settings to the settings window and
+// refreshes the tray, which shows some of them (e.g. a locked exit node).
+func emitSettings() {
+	settingsWindowMu.Lock()
+	defer settingsWindowMu.Unlock()
+	if settingsWindow != nil {
+		settingsWindow.EmitEvent("settings:changed", currentSettings())
 	}
 	publish()
 }
 
-// refreshPreferencesServerSettings re-fetches the server's settings and returns
-// the settings to show. The frontend asks for this when Preferences opens or
-// its tab is selected, and uses the return value rather than an event, which it
-// could miss while the window is still loading.
-func refreshPreferencesServerSettings() Settings {
+// refreshServerSettings re-fetches the server's settings and returns the
+// settings to show. The frontend asks for this when the settings window opens
+// or the Connection tab is selected, and uses the return value rather than an
+// event, which it could miss while the window is still loading.
+func refreshServerSettings() Settings {
 	if orgID, _ := currentOrgInfo(); orgID != "" {
 		fetchServerSettings(orgID)
 		publish()
@@ -128,20 +126,20 @@ func refreshPreferencesServerSettings() Settings {
 }
 
 // serverSettingsPollInterval is how often the server's settings are re-fetched
-// while the Preferences tab is on screen.
+// while the Connection tab is on screen.
 const serverSettingsPollInterval = 10 * time.Second
 
 var (
 	settingsPollMu sync.Mutex
-	// settingsTabActive is set while the Preferences tab is the selected tab.
+	// settingsTabActive is set while the Connection tab is the selected tab.
 	settingsTabActive bool
 	// settingsPollQuit stops the poll; nil while it isn't running.
 	settingsPollQuit chan struct{}
 )
 
-// setPreferencesTabActive records whether the Preferences tab is the selected
-// tab of the Preferences window.
-func setPreferencesTabActive(active bool) {
+// setConnectionTabActive records whether the Connection tab is the selected
+// tab of the settings window.
+func setConnectionTabActive(active bool) {
 	settingsPollMu.Lock()
 	settingsTabActive = active
 	settingsPollMu.Unlock()
@@ -149,12 +147,12 @@ func setPreferencesTabActive(active bool) {
 }
 
 // updateServerSettingsPolling starts or stops the poll so it runs only while
-// the Preferences window is shown on the Preferences tab. Call it whenever
+// the settings window is shown on the Connection tab. Call it whenever
 // either changes.
 func updateServerSettingsPolling() {
 	settingsPollMu.Lock()
 	defer settingsPollMu.Unlock()
-	want := settingsTabActive && prefsVisible.Load()
+	want := settingsTabActive && settingsWindowVisible.Load()
 	switch {
 	case want && settingsPollQuit == nil:
 		settingsPollQuit = make(chan struct{})
@@ -184,7 +182,7 @@ func pollServerSettings(quit <-chan struct{}) {
 		before := currentSettings()
 		fetchServerSettings(orgID)
 		if !reflect.DeepEqual(before, currentSettings()) {
-			emitPreferencesSettings()
+			emitSettings()
 		}
 	}
 }
@@ -233,7 +231,7 @@ func currentSettings() Settings {
 		AutoDownloadUpdatesUnavailable: autoDownloadUpdatesUnavailable(),
 		Disabled:                       cm.GetUserSettingsDisabled(),
 		OrgName:                        orgName,
-		OrgMode:                        !cm.GetOrgConfig(orgID).IsEmpty(),
+		OrgMode:                        cm.GetOrgConfig(orgID).HasOwnSettings(),
 		Managed:                        managedFields(server),
 	}
 }
@@ -309,10 +307,11 @@ func applyGlobalChanges(cfg *config.Config, changes config.OrgConfig) {
 }
 
 // applySettings validates and saves the form. Settings apply as soon as they
-// change, like the macOS app; the frontend asks for the scope of a change. Start
-// at login and connect at start are application settings, so they're always
-// global.
-func applySettings(form Settings, scope string) SettingsResult {
+// change, like the macOS app. Tunnel changes go to the current org's own
+// settings if it has them, otherwise to the ones for all organizations. Start at
+// login, connect at start and updates are application settings, so they're
+// always saved for all organizations.
+func applySettings(form Settings) SettingsResult {
 	if configManager == nil || configManager.GetUserSettingsDisabled() {
 		return SettingsResult{Settings: currentSettings()}
 	}
@@ -338,7 +337,7 @@ func applySettings(form Settings, scope string) SettingsResult {
 
 	changes := tunnelChanges(currentSettings(), form, mtu, primaryDNS, secondaryDNS)
 	orgID, _ := currentOrgInfo()
-	saveToOrg := scope == settingsScopeOrg && orgID != ""
+	saveToOrg := orgID != "" && configManager.GetOrgConfig(orgID).HasOwnSettings()
 
 	// Start from the current config so fields not on this form (e.g.
 	// defaultServerURL, userSettingsDisabled) are preserved.
@@ -361,7 +360,7 @@ func applySettings(form Settings, scope string) SettingsResult {
 		saved = configManager.UpdateOrgConfig(orgID, changes)
 	}
 	if !saved {
-		showError(preferencesWindowOrNil(), "Save Failed", "Failed to save settings. Please try again.")
+		showError(settingsWindowOrNil(), "Save Failed", "Failed to save settings. Please try again.")
 	}
 	// Download an available update now instead of at the manager's next check.
 	if turnedOnAutoDownloadUpdates {
@@ -372,13 +371,38 @@ func applySettings(form Settings, scope string) SettingsResult {
 	return SettingsResult{Settings: currentSettings()}
 }
 
-// resetOrgSettings makes the current org use the global settings again.
+// useOwnOrgSettings gives the current org its own settings, starting as a copy
+// of the ones for all organizations, so nothing it uses changes until they're
+// edited.
+func useOwnOrgSettings() Settings {
+	if configManager == nil || configManager.GetUserSettingsDisabled() {
+		return currentSettings()
+	}
+	if orgID, _ := currentOrgInfo(); orgID != "" && !configManager.GiveOrgOwnSettings(orgID) {
+		showError(settingsWindowOrNil(), "Save Failed", "Failed to save settings. Please try again.")
+	}
+	return currentSettings()
+}
+
+// refreshSettingsForCurrentOrg fetches the current org's server settings and
+// sends the settings to the settings window. Call it after the account or org
+// changes: the window otherwise keeps showing the previous org, and the poll
+// only sends changes to the server's settings, not to which org is current.
+func refreshSettingsForCurrentOrg() {
+	if orgID, _ := currentOrgInfo(); orgID != "" {
+		fetchServerSettings(orgID)
+	}
+	emitSettings()
+}
+
+// resetOrgSettings makes the current org use the settings for all organizations
+// again.
 func resetOrgSettings() Settings {
 	if configManager == nil || configManager.GetUserSettingsDisabled() {
 		return currentSettings()
 	}
 	if orgID, _ := currentOrgInfo(); orgID != "" && !configManager.ResetOrgConfig(orgID) {
-		showError(preferencesWindowOrNil(), "Save Failed", "Failed to save settings. Please try again.")
+		showError(settingsWindowOrNil(), "Save Failed", "Failed to save settings. Please try again.")
 	}
 	return currentSettings()
 }

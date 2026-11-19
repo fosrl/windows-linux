@@ -141,7 +141,7 @@ func autoDownloadUpdatesWanted() bool {
 }
 
 // autoDownloadUpdatesEnabled applies a user turning on automatic downloads in
-// Preferences right away, downloading an available update now instead of at the
+// Settings right away, downloading an available update now instead of at the
 // next scheduled check.
 func autoDownloadUpdatesEnabled() {
 	if manual, _ := updater.ManualUpdate(); manual != "" || !config.AutoUpdateChecksEnabled() {

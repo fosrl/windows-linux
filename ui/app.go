@@ -72,7 +72,7 @@ func Run(d Deps) error {
 	notifier = notifications.New()
 	opts := appOptions(assets, []application.Service{
 			application.NewService(&MenuService{}),
-			application.NewService(&PreferencesService{}),
+			application.NewService(&SettingsService{}),
 			application.NewService(&StatusService{}),
 			application.NewService(&LogsService{}),
 			application.NewService(&LoginService{}),

@@ -34,7 +34,7 @@ func registerIPCCallbacks() {
 		case managers.UIActionOpenUpdate:
 			go showUpdateWindow()
 		case managers.UIActionShow:
-			go showPreferencesWindow(prefsTabStatus, nil)
+			go showSettingsWindow(settingsTabStatus, nil)
 		}
 	})
 

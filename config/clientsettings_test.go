@@ -72,3 +72,68 @@ func TestEffectiveSettingsPrecedence(t *testing.T) {
 }
 
 func strPtr(s string) *string { return &s }
+
+func TestGiveOrgOwnSettingsCopiesEverySetting(t *testing.T) {
+	global := 1400
+	exitNode := 7
+	cm := &ConfigManager{
+		configPath: t.TempDir() + "/pangolin.json",
+		config: &Config{
+			MTU:        &global,
+			PrimaryDNS: strPtr("1.1.1.1"),
+			Orgs:       map[string]OrgConfig{"a": {ExitNodeResourceID: &exitNode}},
+		},
+	}
+	if cm.GetOrgConfig("a").HasOwnSettings() {
+		t.Fatal("an exit node alone shouldn't count as the org's own settings")
+	}
+
+	if !cm.GiveOrgOwnSettings("a") {
+		t.Fatal("GiveOrgOwnSettings failed")
+	}
+	org := cm.GetOrgConfig("a")
+	if !org.HasOwnSettings() {
+		t.Fatal("org should have its own settings")
+	}
+	// Nothing the org uses changes when it gets its own settings.
+	if got := cm.EffectiveSettings("a", nil); got.MTU != global || got.PrimaryDNS != "1.1.1.1" ||
+		got.DNSOverride != DefaultDNSOverride {
+		t.Errorf("effective settings changed: %+v", got)
+	}
+	// Every setting is copied, so later global changes don't reach the org.
+	if org.DNSOverride == nil || org.DNSTunnel == nil || org.PrimaryDNS == nil ||
+		org.SecondaryDNS == nil || org.MTU == nil || org.ExitNodeTakesPrecedence == nil {
+		t.Errorf("not every setting was copied: %+v", org)
+	}
+	newGlobal := 1300
+	cm.config.MTU = &newGlobal
+	if got := cm.EffectiveSettings("a", nil).MTU; got != global {
+		t.Errorf("global change reached the org: MTU = %d, want %d", got, global)
+	}
+
+	// Reset clears the settings but keeps the exit node.
+	if !cm.ResetOrgConfig("a") {
+		t.Fatal("ResetOrgConfig failed")
+	}
+	org = cm.GetOrgConfig("a")
+	if org.HasOwnSettings() {
+		t.Errorf("reset left settings behind: %+v", org)
+	}
+	if org.ExitNodeResourceID == nil || *org.ExitNodeResourceID != exitNode {
+		t.Errorf("reset lost the exit node: %+v", org)
+	}
+}
+
+func TestResetOrgConfigRemovesEmptySection(t *testing.T) {
+	mtu := 1300
+	cm := &ConfigManager{
+		configPath: t.TempDir() + "/pangolin.json",
+		config:     &Config{Orgs: map[string]OrgConfig{"a": {MTU: &mtu}}},
+	}
+	if !cm.ResetOrgConfig("a") {
+		t.Fatal("ResetOrgConfig failed")
+	}
+	if _, ok := cm.config.Orgs["a"]; ok {
+		t.Error("an org with nothing left should be removed")
+	}
+}

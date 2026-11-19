@@ -141,13 +141,13 @@ equivalent yet** (see [history.md](history.md#known-gaps)).
 ## UI process
 
 `ui.Run` (`ui/app.go`) creates the Wails app with bound services
-(`ui/services.go`: Menu, Preferences, Status, Logs, Login, Accounts,
+(`ui/services.go`: Menu, Settings, Status, Logs, Login, Accounts,
 Onboarding, App, Update, CLI, notifier), sets up the tray, registers IPC
 callbacks (`ui/ipcevents.go`), then on start: shows startup warning, refreshes
 tray, checks for updates, adopts a running tunnel, then onboarding or
 Always-On resume or auto-connect.
 
-Windows are routes of one page: `#/tray`, `#/preferences`, `#/onboarding`,
+Windows are routes of one page: `#/tray`, `#/settings`, `#/onboarding`,
 `#/cli`, `#/update` (`ui/frontend/src/main.tsx`). The tray popup is a frameless
 transparent window that renders `MenuState` (built in Go: `ui/menu.go`
 `buildMenuState` from `ui/state.go` `collectMenuInputs`) and posts clicks back
@@ -175,14 +175,25 @@ in effect because they're read via `LoadSystemConfig()` directly:
 `orgs.<orgId>`; precedence when connecting is server client-settings (`GET
 /org/:orgId/my-client-settings`) > org section > global
 (`config/clientsettings.go` `EffectiveSettings`). The server's settings are
-re-fetched on every connect (`tunnel.Manager.buildConfig`); by the Preferences
-window when it opens or its Preferences tab is selected
-(`PreferencesService.Refresh`, whose return value is used instead of an event
-so it can't be missed while the window loads); and every 10s while that tab is
+re-fetched on every connect (`tunnel.Manager.buildConfig`); by the settings
+window when it opens or its Connection tab is selected
+(`SettingsService.Refresh`, whose return value is used instead of an event
+so it can't be missed while the window loads); every 10s while that tab is
 showing (`ui/settings.go` `pollServerSettings`, told about the selected tab by
-`PreferencesService.SetSettingsActive`, pushing changes with `prefs:settings`).
-`userSettingsDisabled` locks the
-Preferences form.
+`SettingsService.SetSettingsActive`, pushing changes with `settings:changed`);
+and after the account or org changes (`refreshSettingsForCurrentOrg`), so the
+window shows, and saves to, the new org.
+
+The settings window splits app-wide settings (General tab: start at login,
+connect at start, updates) from tunnel settings (Connection tab). An org uses
+the tunnel settings for all organizations until the user clicks "Use Own
+Settings" (`SettingsService.UseOwnSettings` → `GiveOrgOwnSettings`), which
+copies every one of them into `orgs.<orgId>` so nothing changes and later
+global edits don't reach it. While an org has its own settings
+(`OrgConfig.HasOwnSettings`), Connection tab changes are saved only for it;
+"Reset…" (`ResetOrg` → `ResetOrgConfig`) clears them but keeps the org's exit
+node, match domains and prefer-local-routes. There is no per-change prompt.
+`userSettingsDisabled` locks both tabs.
 
 The privileged process must read a user's config **for that user** (it can't use
 its own env): Windows reads the session token's `LOCALAPPDATA`

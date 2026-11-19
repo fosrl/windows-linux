@@ -30,29 +30,34 @@ func (MenuService) OpenReady(height int) { trayOpenReady(height) }
 // status is only polled while it is on screen.
 func (MenuService) SetSitesVisible(visible bool) { setMenuSitesVisible(visible) }
 
-// PreferencesService backs the Preferences tab.
-type PreferencesService struct{}
+// SettingsService backs the General and Connection tabs of the settings window.
+type SettingsService struct{}
 
-func (PreferencesService) Opened() PrefsOpened {
-	prefsMu.Lock()
-	defer prefsMu.Unlock()
-	return currentPrefsOpened()
+func (SettingsService) Opened() SettingsOpened {
+	settingsWindowMu.Lock()
+	defer settingsWindowMu.Unlock()
+	return currentSettingsOpened()
 }
 
-// Update saves the form; scope says where its tunnel settings go.
-func (PreferencesService) Update(form Settings, scope string) SettingsResult {
-	return applySettings(form, scope)
+// Update saves the form. Its tunnel settings go to the current org's own
+// settings if it has them, otherwise to the ones for all organizations.
+func (SettingsService) Update(form Settings) SettingsResult {
+	return applySettings(form)
 }
 
-// ResetOrg makes the current org use the global settings again.
-func (PreferencesService) ResetOrg() Settings { return resetOrgSettings() }
+// UseOwnSettings gives the current org its own settings, starting as a copy of
+// the ones it uses now.
+func (SettingsService) UseOwnSettings() Settings { return useOwnOrgSettings() }
+
+// ResetOrg makes the current org use the settings for all organizations again.
+func (SettingsService) ResetOrg() Settings { return resetOrgSettings() }
 
 // Refresh re-fetches the server's settings and returns the settings to show.
-func (PreferencesService) Refresh() Settings { return refreshPreferencesServerSettings() }
+func (SettingsService) Refresh() Settings { return refreshServerSettings() }
 
-// SetSettingsActive is called when the Preferences tab is selected or left, so
+// SetSettingsActive is called when the Connection tab is selected or left, so
 // the server's settings are only polled while it is on screen.
-func (PreferencesService) SetSettingsActive(active bool) { setPreferencesTabActive(active) }
+func (SettingsService) SetSettingsActive(active bool) { setConnectionTabActive(active) }
 
 // StatusService backs the Status tab.
 type StatusService struct{}
@@ -67,7 +72,7 @@ func (LogsService) Clear()                 { clearLogs() }
 func (LogsService) Copy(seqs []uint64)     { copyLogLines(seqs) }
 func (LogsService) Export()                { exportLogs() }
 
-// LoginService backs the add-account sheet in Preferences > Accounts.
+// LoginService backs the add-account sheet in Settings > Accounts.
 type LoginService struct{}
 
 func (LoginService) State() LoginView { return currentLoginView() }
@@ -91,7 +96,7 @@ func (OnboardingService) MarkWelcomeSeen()         { markOnboardingWelcomeSeen()
 func (OnboardingService) MarkPrivacyAcknowledged() { markOnboardingPrivacyAcknowledged() }
 func (OnboardingService) Close()                   { closeOnboardingWindow() }
 
-// AccountsService backs Preferences > Accounts.
+// AccountsService backs Settings > Accounts.
 type AccountsService struct{}
 
 func (AccountsService) State() AccountsView  { return currentAccountsView() }

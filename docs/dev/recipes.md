@@ -18,10 +18,12 @@ baseline checks in [testing.md](testing.md#baseline-checks-always) (both OSes).
    the service/daemon (that's SYSTEM's / root's).
 4. Machine-only settings (read via `LoadSystemConfig()` only) are fine too;
    document them in public docs.
-5. Preferences UI: `ui/settings.go` `Settings` struct (+ json tag),
+5. Settings UI: `ui/settings.go` `Settings` struct (+ json tag),
    `currentSettings()`, `applySettings()`; then `make bindings` (regenerates
    `ui/frontend/src/bindings/.../ui/models.ts`); then
-   `ui/frontend/src/prefs/PreferencesTab.tsx`; and `ui/frontend/src/mocks/bindings.ts`
+   `ui/frontend/src/settings/GeneralTab.tsx` (app-wide) or `ConnectionTab.tsx`
+   (per-org; also add it to `HasOwnSettings`, `GiveOrgOwnSettings` and
+   `ResetOrgConfig`); and `ui/frontend/src/mocks/bindings.ts`
    so `npm run mock` still works.
 6. If the manager must react immediately (like `AutoDownloadUpdatesTurnedOn`),
    add an IPC method (next recipe).

@@ -142,9 +142,9 @@ func (s *ManagerService) CheckForUpdates() (UpdateState, error) {
 }
 
 // AutoDownloadUpdatesTurnedOn is called after a user turns on automatic update
-// downloads in Preferences, so an available update downloads now.
+// downloads in Settings, so an available update downloads now.
 func (s *ManagerService) AutoDownloadUpdatesTurnedOn() {
-	logger.Info("Automatic update downloads turned on from Preferences")
+	logger.Info("Automatic update downloads turned on from Settings")
 	autoDownloadUpdatesEnabled()
 }
 

@@ -6,8 +6,8 @@ import type {
   LogsSnapshot,
   LoginView,
   MenuState,
-  PrefsOpened,
   Settings,
+  SettingsOpened,
   StatusView,
   TrayLayout,
   UpdateInfo,
@@ -87,7 +87,7 @@ return {
       }),
     ]),
     sep,
-    it("preferences", "Preferences…"),
+    it("settings", "Settings…"),
     row({
       id: "more", kind: "submenu", label: "More",
       items: [hdr("Support"), it("more.howItWorks", "How Pangolin Works"), it("more.docs", "Documentation"), sep, hdr("© 2026 Fossorial, Inc."), it("more.terms", "Terms of Service"), it("more.privacy", "Privacy Policy"), sep, hdr("Version 0.9.0"), it("more.checkUpdates", "Check for Updates…"), it("more.installCLI", "Install Pangolin CLI…")],
@@ -183,8 +183,8 @@ export const MenuService = {
   Invoke: mockInvoke, Resize: (h: number) => ok(log("resize", h)), Hide: () => ok(log("hide")),
   SetSitesVisible: (v: boolean) => ok(log("sites visible", v)), HideReady: () => ok(log("hide ready")), OpenReady: (h: number) => ok(log("open ready", h)),
 };
-export const PreferencesService = {
-  Opened: () => ok<PrefsOpened>({
+export const SettingsService = {
+  Opened: () => ok<SettingsOpened>({
     tab: Number(params.get("tab") ?? 0), settings,
     login: params.has("step") ? { id: 1, hostname: params.get("renew") ?? "" } : null,
   }),
@@ -196,6 +196,10 @@ export const PreferencesService = {
   },
   Refresh: () => ok({ ...settings }),
   SetSettingsActive: (v: boolean) => ok(log("settings active", v)),
+  UseOwnSettings: () => {
+    settings.orgMode = true;
+    return ok({ ...settings });
+  },
   ResetOrg: () => {
     settings.orgMode = false;
     return ok({ ...settings });

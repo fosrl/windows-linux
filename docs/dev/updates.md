@@ -2,7 +2,7 @@
 
 Both platforms share: the signed manifest format, version comparison, the
 update state machine (`managers/updatestate.go`), the silent
-auto-download-and-install feature, the UI update window and Preferences
+auto-download-and-install feature, the UI update window and Settings
 toggle. They differ in how a package is downloaded and installed.
 
 ## Signed manifest
@@ -84,7 +84,7 @@ Origin: Windows commit `d1d82ba` "add auto download and install update option"
 the same.
 
 Setting: `autoDownloadUpdatesEnabled` (default false) in machine or user
-`pangolin.json`, toggled in Preferences (greyed out with instructions on
+`pangolin.json`, toggled in Settings > General (greyed out with instructions on
 AUR/hand-installed Linux builds). `autoDownloadUpdatesWanted()` = not a manual
 install && (machine config on || **any signed-in user's** config on).
 Turning it on calls IPC `AutoDownloadUpdatesTurnedOn` → download now.

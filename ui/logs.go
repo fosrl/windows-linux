@@ -248,7 +248,7 @@ func copyLogLines(seqs []uint64) {
 
 // exportLogs asks for a file and writes all displayed log lines to it.
 func exportLogs() {
-	owner := preferencesWindowOrNil()
+	owner := settingsWindowOrNil()
 	d := app.Dialog.SaveFile().
 		SetFilename(fmt.Sprintf("pangolin-log-%s.txt", time.Now().Format("2006-01-02T150405"))).
 		SetMessage("Export log to file").

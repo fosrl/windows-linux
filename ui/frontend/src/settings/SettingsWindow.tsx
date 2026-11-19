@@ -1,24 +1,36 @@
-import { useEffect, useState, type ReactNode } from "react";
-import { PreferencesService, type LoginRequest, type PrefsOpened, type Settings } from "@bindings";
+import { useEffect, useRef, useState, type ReactNode } from "react";
+import {
+  SettingsService,
+  type LoginRequest,
+  type Settings,
+  type SettingsOpened,
+  type SettingsResult,
+} from "@bindings";
 import { cx } from "../components/controls";
 import { report, useEvent } from "../lib";
-import { PreferencesTab } from "./PreferencesTab";
+import { GeneralTab } from "./GeneralTab";
+import { ConnectionTab } from "./ConnectionTab";
 import { AccountsTab } from "./AccountsTab";
 import { StatusTab } from "./StatusTab";
 import { LogsTab } from "./LogsTab";
 import { AboutTab } from "./AboutTab";
 
-// Tab indexes are shared with the backend (prefsTab* in ui/windows.go).
+// Tab indexes are shared with the backend (settingsTab* in ui/windows.go).
 const sections: { name: string; icon: ReactNode }[] = [
-  { name: "Preferences", icon: <GearIcon /> },
+  { name: "General", icon: <GearIcon /> },
+  { name: "Connection", icon: <NetworkIcon /> },
   { name: "Accounts", icon: <AccountsIcon /> },
   { name: "Status", icon: <StatusIcon /> },
   { name: "About", icon: <InfoIcon /> },
 ];
-const aboutTab = 3;
+const generalTab = 0;
+const connectionTab = 1;
+const accountsTab = 2;
+const statusTab = 3;
+const aboutTab = 4;
 
 /** Sidebar + detail layout, like the macOS app's NavigationSplitView. */
-export function PreferencesWindow() {
+export function SettingsWindow() {
   const [tab, setTabState] = useState(0);
   // Logs is a page within About, opened from it like a pushed view on macOS.
   const [showingLogs, setShowingLogs] = useState(false);
@@ -27,14 +39,28 @@ export function PreferencesWindow() {
     setTabState(t);
     setShowingLogs(false);
   };
+  // One copy of the settings for the General and Connection tabs: each change
+  // saves the whole form, so neither tab may hold a stale copy of the other's.
   const [settings, setSettings] = useState<Settings | null>(null);
+  const settingsRef = useRef(settings);
+  settingsRef.current = settings;
   // Bumped each time the window is shown, so sections reset like a freshly opened window.
   const [openCount, setOpenCount] = useState(0);
   const [login, setLogin] = useState<LoginRequest | null>(null);
   // Tabs can put a toolbar control at the trailing end of the header.
   const [headerAccessory, setHeaderAccessory] = useState<HTMLElement | null>(null);
 
-  const onOpened = (o: PrefsOpened) => {
+  /** Saves a change. Resolves to the backend's result so sheets can show validation errors. */
+  const apply = async (patch: Partial<Settings>): Promise<SettingsResult> => {
+    const prev = settingsRef.current!;
+    const next = { ...prev, ...patch };
+    setSettings(next);
+    const result = await SettingsService.Update(next);
+    setSettings(result.settings);
+    return result;
+  };
+
+  const onOpened = (o: SettingsOpened) => {
     if (o.tab >= 0 && o.tab < sections.length) setTab(o.tab);
     setSettings(o.settings);
     if (o.login) setLogin(o.login);
@@ -42,26 +68,27 @@ export function PreferencesWindow() {
   };
 
   useEffect(() => {
-    report(PreferencesService.Opened().then(onOpened));
+    report(SettingsService.Opened().then(onOpened));
   }, []);
-  useEvent<PrefsOpened>("prefs:opened", onOpened);
-  // The backend polls the server's settings while the Preferences tab is
-  // showing (and the window is open) and pushes changes here.
-  useEvent<Settings>("prefs:settings", setSettings);
+  useEvent<SettingsOpened>("settings:opened", onOpened);
+  // The backend polls the server's settings while the Connection tab is
+  // showing (and the window is open), and sends the settings when the account
+  // or org changes.
+  useEvent<Settings>("settings:changed", setSettings);
   useEffect(() => {
-    report(PreferencesService.SetSettingsActive(tab === 0));
+    report(SettingsService.SetSettingsActive(tab === connectionTab));
   }, [tab]);
-  // Fetch the server's settings whenever the window opens or the tab is
-  // selected. The result is returned rather than sent as an event, so it can't
-  // be missed while the window is loading or the tab is remounting.
+  // Fetch the server's settings whenever the window opens or the Connection
+  // tab is selected. The result is returned rather than sent as an event, so it
+  // can't be missed while the window is loading or the tab is remounting.
   useEffect(() => {
-    if (tab === 0 && openCount > 0) report(PreferencesService.Refresh().then(setSettings));
+    if (tab === connectionTab && openCount > 0) report(SettingsService.Refresh().then(setSettings));
   }, [tab, openCount]);
 
   return (
     <div className="flex h-full min-w-0">
       <nav
-        aria-label="Preferences sections"
+        aria-label="Settings sections"
         className="flex w-[192px] shrink-0 flex-col gap-0.5 border-r border-mac-separator bg-mac-sidebar p-2.5 pt-3"
       >
         {sections.map((s, i) => (
@@ -101,11 +128,19 @@ export function PreferencesWindow() {
           <div ref={setHeaderAccessory} className="flex items-center" />
         </header>
         {/* Sections stay mounted so the logs view keeps its scroll position and selection. */}
-        <Pane visible={tab === 0}>{settings && <PreferencesTab key={openCount} initial={settings} />}</Pane>
-        <Pane visible={tab === 1}>
-          <AccountsTab visible={tab === 1} openCount={openCount} login={login} headerAccessory={headerAccessory} />
+        <Pane visible={tab === generalTab}>{settings && <GeneralTab settings={settings} apply={apply} />}</Pane>
+        <Pane visible={tab === connectionTab}>
+          {settings && <ConnectionTab key={openCount} settings={settings} apply={apply} onChange={setSettings} />}
         </Pane>
-        <Pane visible={tab === 2}>
+        <Pane visible={tab === accountsTab}>
+          <AccountsTab
+            visible={tab === accountsTab}
+            openCount={openCount}
+            login={login}
+            headerAccessory={headerAccessory}
+          />
+        </Pane>
+        <Pane visible={tab === statusTab}>
           <StatusTab key={openCount} />
         </Pane>
         <Pane visible={tab === aboutTab && !showingLogs}>
@@ -132,6 +167,16 @@ function GearIcon() {
         fillRule="evenodd"
         d="M11.1 1.5a1 1 0 0 1 1 .8l.3 1.6c.5.2 1 .5 1.4.8l1.5-.6a1 1 0 0 1 1.2.4l1.1 1.9a1 1 0 0 1-.2 1.3l-1.3 1c.1.5.1 1.1 0 1.6l1.3 1a1 1 0 0 1 .2 1.3l-1.1 1.9a1 1 0 0 1-1.2.4l-1.5-.6c-.4.3-.9.6-1.4.8l-.3 1.6a1 1 0 0 1-1 .8H8.9a1 1 0 0 1-1-.8l-.3-1.6c-.5-.2-1-.5-1.4-.8l-1.5.6a1 1 0 0 1-1.2-.4l-1.1-1.9a1 1 0 0 1 .2-1.3l1.3-1a5.6 5.6 0 0 1 0-1.6l-1.3-1a1 1 0 0 1-.2-1.3l1.1-1.9a1 1 0 0 1 1.2-.4l1.5.6c.4-.3.9-.6 1.4-.8l.3-1.6a1 1 0 0 1 1-.8h2.2ZM10 7a3 3 0 1 0 0 6 3 3 0 0 0 0-6Z"
       />
+    </svg>
+  );
+}
+
+/** `network`: the Connection tab. */
+function NetworkIcon() {
+  return (
+    <svg viewBox="0 0 20 20" className="size-[16px]" fill="none" stroke="currentColor" strokeWidth="1.6">
+      <circle cx="10" cy="10" r="7.5" />
+      <path d="M2.5 10h15M10 2.5c2.1 2.1 3 4.6 3 7.5s-.9 5.4-3 7.5M10 2.5C7.9 4.6 7 7.1 7 10s.9 5.4 3 7.5" />
     </svg>
   );
 }

@@ -93,11 +93,11 @@ func startLinuxTray() {
 		updateTrayForState(currentTunnelState())
 	}
 
-	// Without a tray there is no way to open Pangolin, so open Preferences.
+	// Without a tray there is no way to open Pangolin, so open Settings.
 	time.Sleep(trayHostWait)
 	if !shellExtensionActive() && (item == nil || !item.HostAvailable()) {
-		logger.Error("No system tray found; opening Preferences instead. On GNOME, enable the Pangolin extension.")
-		showPreferencesWindow(prefsTabPreferences, nil)
+		logger.Error("No system tray found; opening Settings instead. On GNOME, enable the Pangolin extension.")
+		showSettingsWindow(settingsTabGeneral, nil)
 	}
 }
 

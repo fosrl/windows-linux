@@ -8,7 +8,7 @@ import * as LoginService from "./loginservice.js";
 import * as LogsService from "./logsservice.js";
 import * as MenuService from "./menuservice.js";
 import * as OnboardingService from "./onboardingservice.js";
-import * as PreferencesService from "./preferencesservice.js";
+import * as SettingsService from "./settingsservice.js";
 import * as StatusService from "./statusservice.js";
 import * as UpdateService from "./updateservice.js";
 export {
@@ -19,7 +19,7 @@ export {
     LogsService,
     MenuService,
     OnboardingService,
-    PreferencesService,
+    SettingsService,
     StatusService,
     UpdateService
 };
@@ -36,8 +36,8 @@ export type {
     MenuItem,
     MenuState,
     OnboardingState,
-    PrefsOpened,
     Settings,
+    SettingsOpened,
     SettingsResult,
     StatusSite,
     StatusView,
