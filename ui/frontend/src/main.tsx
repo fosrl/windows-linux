@@ -2,7 +2,7 @@ import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import "./index.css";
 import { TrayMenu } from "./tray/TrayMenu";
-import { PreferencesWindow } from "./prefs/PreferencesWindow";
+import { SettingsWindow } from "./settings/SettingsWindow";
 import { OnboardingWindow } from "./onboarding/OnboardingWindow";
 import { UpdateWindow } from "./update/UpdateWindow";
 import { CLIWindow } from "./cli/CLIWindow";
@@ -14,8 +14,8 @@ function App() {
   switch (route) {
     case "tray":
       return <TrayMenu />;
-    case "preferences":
-      return <PreferencesWindow />;
+    case "settings":
+      return <SettingsWindow />;
     case "onboarding":
       return <OnboardingWindow />;
     case "cli":

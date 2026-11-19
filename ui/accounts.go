@@ -10,7 +10,7 @@ import (
 	"github.com/fosrl/windows-linux/managers"
 )
 
-// AccountRow is one account in Preferences > Accounts.
+// AccountRow is one account in Settings > Accounts.
 type AccountRow struct {
 	UserID      string `json:"userId"`
 	DisplayName string `json:"displayName"`
@@ -80,7 +80,7 @@ func currentAccountsView() AccountsView {
 }
 
 // deleteAccount signs out of an account and removes it, as Remove… in
-// Preferences and Log Out in the tray both do. Removing the active account
+// Settings and Log Out in the tray both do. Removing the active account
 // stops the tunnel and switches to the next account.
 func deleteAccount(userID string) {
 	if authManager == nil || accountManager == nil {
@@ -120,6 +120,11 @@ func deleteAccount(userID string) {
 	}
 	if err := authManager.DeleteAccount(userID); err != nil {
 		logger.Error("Failed to remove account: %v", err)
-		showError(preferencesWindowOrNil(), "Remove Account Failed", fmt.Sprintf("Failed to remove the account: %v", err))
+		showError(settingsWindowOrNil(), "Remove Account Failed", fmt.Sprintf("Failed to remove the account: %v", err))
+		return
+	}
+	if active {
+		// Another account (or none) is active now, with a different org.
+		refreshSettingsForCurrentOrg()
 	}
 }

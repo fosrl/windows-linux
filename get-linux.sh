@@ -24,7 +24,7 @@ NC='\033[0m' # No Color
 # with tags prefixed by platform (linux-0.1.0, windows-0.16.0).
 REPO="fosrl/windows-linux"
 TAG_PREFIX="linux-"
-VERSIONS_API_URL="https://api.fossorial.io/api/v1/versions"
+RELEASE_API_URL="https://api.fossorial.io/api/v1/versions/linux"
 
 # Output helpers
 print_status() {
@@ -60,24 +60,76 @@ download() {
     fi
 }
 
-# Latest Linux client version from the Fossorial versions API
-# (data.linux.latestVersion), without any "linux-" or "v" prefix.
-get_latest_version() {
-    latest_info=$(fetch "$VERSIONS_API_URL" 2>/dev/null || true)
-    if [ -z "$latest_info" ]; then
-        print_error "Failed to fetch latest version info"
+# Fetch the latest release info (version and asset checksums) from the
+# Fossorial API into RELEASE_INFO. Returns 1 if it isn't available.
+RELEASE_INFO=""
+fetch_release_info() {
+    if command -v curl >/dev/null 2>&1; then
+        RELEASE_INFO=$(curl -fsSL "$RELEASE_API_URL" 2>/dev/null || true)
+    else
+        RELEASE_INFO=$(wget -qO- "$RELEASE_API_URL" 2>/dev/null || true)
+    fi
+    RELEASE_INFO=$(printf '%s' "$RELEASE_INFO" | tr -d '\n\r')
+    [ -n "$RELEASE_INFO" ]
+}
+
+# latestVersion from RELEASE_INFO, without a leading "v". Parsed without jq.
+release_info_version() {
+    printf '%s' "$RELEASE_INFO" |
+        sed -n 's/.*"latestVersion"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' |
+        sed 's/^v//'
+}
+
+# Published sha256 of a release asset from RELEASE_INFO, or nothing.
+release_info_digest() {
+    asset_re=$(printf '%s' "$1" | sed 's/[][\.*^$/]/\\&/g')
+    printf '%s' "$RELEASE_INFO" |
+        sed -n "s/.*\"${asset_re}\"[[:space:]]*:[[:space:]]*\"\([0-9a-f]\{64\}\)\".*/\1/p"
+}
+
+# sha256 of a file, with whichever tool this system has.
+sha256_of() {
+    if command -v sha256sum >/dev/null 2>&1; then
+        sha256sum "$1" | awk '{print $1}'
+    elif command -v shasum >/dev/null 2>&1; then
+        shasum -a 256 "$1" | awk '{print $1}'
+    elif command -v sha256 >/dev/null 2>&1; then
+        sha256 -q "$1"
+    elif command -v openssl >/dev/null 2>&1; then
+        openssl dgst -sha256 "$1" | awk '{print $NF}'
+    else
+        return 1
+    fi
+}
+
+# Check a downloaded file against the checksum published for its release
+# asset. Exits on a mismatch; warns and carries on when there's no published
+# checksum (pinned older version, or the API was unreachable).
+verify_checksum() {
+    checksum_file="$1"
+    checksum_asset="$2"
+
+    checksum_expected=$(release_info_digest "$checksum_asset")
+    if [ -z "$checksum_expected" ]; then
+        print_warning "No published checksum for ${checksum_asset}; skipping verification."
+        return 0
+    fi
+
+    checksum_actual=$(sha256_of "$checksum_file" || true)
+    if [ -z "$checksum_actual" ]; then
+        print_warning "No sha256 tool found (sha256sum, shasum, sha256 or openssl); skipping verification."
+        return 0
+    fi
+
+    if [ "$checksum_actual" != "$checksum_expected" ]; then
+        print_error "Checksum mismatch for ${checksum_asset}!"
+        print_error "  expected: ${checksum_expected}"
+        print_error "  got:      ${checksum_actual}"
+        print_error "The download may be corrupted or tampered with. Nothing was installed."
         exit 1
     fi
 
-    # Extract data.linux.latestVersion without requiring jq.
-    version=$(printf '%s' "$latest_info" | tr -d '\n\r' | sed -n 's/.*"linux"[[:space:]]*:[[:space:]]*{[^}]*"latestVersion"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p')
-    if [ -z "$version" ]; then
-        print_error "Could not parse linux.latestVersion from versions API response"
-        print_error "Re-run with --version X.Y.Z, or download a package from https://github.com/${REPO}/releases"
-        exit 1
-    fi
-
-    printf '%s' "$version" | sed "s/^${TAG_PREFIX}//; s/^v//"
+    print_status "Checksum verified (sha256 ${checksum_expected})"
 }
 
 # CPU architecture, as used in the package names
@@ -249,11 +301,38 @@ main() {
         print_status "Detected platform: ${FORMAT} package for ${ARCH}"
     fi
 
+    if ! command -v curl >/dev/null 2>&1 && ! command -v wget >/dev/null 2>&1; then
+        print_error "Neither curl nor wget is available."
+        exit 1
+    fi
+
+    # The latest release info also carries the package checksums. Windows
+    # and Linux share a repo, so there's no GitHub "latest" link to fall
+    # back to when the API is unreachable.
+    print_status "Fetching latest version..."
+    LATEST=""
+    if fetch_release_info; then
+        LATEST=$(release_info_version | sed "s/^${TAG_PREFIX}//")
+    fi
     if [ -z "$VERSION" ]; then
-        print_status "Fetching latest version..."
-        VERSION=$(get_latest_version)
+        if [ -z "$LATEST" ]; then
+            print_error "Could not get the latest version from ${RELEASE_API_URL}"
+            print_error "Re-run with --version X.Y.Z, or download a package from https://github.com/${REPO}/releases"
+            exit 1
+        fi
+        VERSION="$LATEST"
     fi
     VERSION=$(printf '%s' "$VERSION" | sed "s/^${TAG_PREFIX}//; s/^v//")
+    case "$VERSION" in
+        ""|*[!0-9A-Za-z.+-]*)
+            print_error "Invalid version: ${VERSION}"
+            exit 1
+            ;;
+    esac
+    # Checksums are only published for the latest release.
+    if [ "$VERSION" != "$LATEST" ]; then
+        RELEASE_INFO=""
+    fi
     print_status "Version: ${VERSION}"
 
     SUDO_CMD=$(get_sudo_cmd)
@@ -274,6 +353,7 @@ main() {
         print_error "https://github.com/${REPO}/releases/tag/${TAG_PREFIX}${VERSION}"
         exit 1
     fi
+    verify_checksum "$package_file" "$asset_name"
     chmod 644 "$package_file"
 
     if [ -n "$SUDO_CMD" ]; then

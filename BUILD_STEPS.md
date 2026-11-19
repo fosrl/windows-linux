@@ -17,7 +17,7 @@ Install the required tools:
   - Windows: Use WSL or download from a coreutils package
 
 - **Node.js 20+ and npm**: For building the webview UI in `ui/frontend`
-  - The UI is a Vite + React + TypeScript app rendered with [Wails v3](https://v3.wails.io/). `make build` builds it and embeds it into the exe.
+  - The UI is a Vite + React + TypeScript app rendered with [Wails v3](https://v3.wails.io/). `make build-windows` builds it and embeds it into the exe.
 
 - **wails3 CLI** (only to regenerate the TypeScript bindings after changing a bound Go service in `ui/`)
   - `go install github.com/wailsapp/wails/v3/cmd/wails3@v3.0.0`, then `make bindings`. On Linux, install it with `-tags gtk3` unless you have WebKitGTK 6.0.
@@ -69,7 +69,7 @@ pushed: it builds `Pangolin.exe`, signs it with the DigiCert certificate
 update manifest, and attaches both to a draft GitHub release. Push a tag named
 `windows-` and the version (e.g. `windows-1.0.3` or `windows-1.0.3-rc.1`).
 Nothing in the repo holds the version: CI strips the prefix, stamps the rest
-into the binary with `-ldflags` (`make build VERSION=1.0.3`) and passes it to
+into the binary with `-ldflags` (`make build-windows VERSION=1.0.3`) and passes it to
 WiX (`-d Version=...`, without any `-rc.N`). A build without `VERSION` reports
 itself as `dev`.
 
@@ -81,13 +81,13 @@ The steps below are the manual equivalent.
 ### 1. Build the Application
 
 ```bash
-make build VERSION=1.0.3
+make build-windows VERSION=1.0.3
 ```
 
 This builds the frontend (`ui/frontend/dist`) and creates `build/Pangolin.exe`
 with the version set in `version.Number`.
 
-To preview the UI in a desktop browser without Windows, run `npm run mock` in `ui/frontend` and open `http://localhost:5173/#/tray`, `#/preferences`, `#/login` or `#/progress?kind=update`. Mock mode swaps the Go services for fake data.
+To preview the UI in a desktop browser without Windows, run `npm run mock` in `ui/frontend` and open `http://localhost:5173/#/tray`, `#/settings`, `#/login` or `#/progress?kind=update`. Mock mode swaps the Go services for fake data.
 
 ### 2. Build MSI Installers
 

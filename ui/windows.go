@@ -51,15 +51,16 @@ var (
 	trayLayout     = TrayLayout{SubmenuSide: "left", Anchor: "bottom", PanelWidth: trayPanelWidth, Padding: trayShadowPadding}
 	trayLastHidden time.Time
 
-	prefsWindow *application.WebviewWindow
-	prefsMu     sync.Mutex
-	prefsTab    int
-	prefsOpen   bool
-	// prefsLogin is the login request waiting for the Accounts tab.
-	prefsLogin *LoginRequest
-	// prefsVisible mirrors prefsOpen for readers that must not take prefsMu.
-	prefsVisible atomic.Bool
-	prefsLoginID int
+	settingsWindow     *application.WebviewWindow
+	settingsWindowMu   sync.Mutex
+	settingsWindowTab  int
+	settingsWindowOpen bool
+	// settingsLogin is the login request waiting for the Accounts tab.
+	settingsLogin *LoginRequest
+	// settingsWindowVisible mirrors settingsWindowOpen for readers that must not
+	// take settingsWindowMu.
+	settingsWindowVisible atomic.Bool
+	settingsLoginID       int
 )
 
 func createTrayWindow() {
@@ -370,16 +371,18 @@ func windowTitleBarTheme() application.ThemeSettings {
 
 type frameInsets struct{ left, top, right, bottom int }
 
-// Preferences sidebar sections, in order. The frontend uses the same indexes.
+// Settings sidebar sections, in order. The frontend uses the same indexes.
 const (
-	prefsTabPreferences = iota
-	prefsTabAccounts
-	prefsTabStatus
-	prefsTabLogs
-	prefsTabAbout
+	// settingsTabGeneral holds the app-wide settings.
+	settingsTabGeneral = iota
+	// settingsTabConnection holds the tunnel settings, which can differ per org.
+	settingsTabConnection
+	settingsTabAccounts
+	settingsTabStatus
+	settingsTabAbout
 )
 
-// LoginRequest asks Preferences > Accounts to show the add-account sheet.
+// LoginRequest asks Settings > Accounts to show the add-account sheet.
 type LoginRequest struct {
 	// ID tells requests apart, so each one opens a fresh sheet.
 	ID int `json:"id"`
@@ -387,34 +390,34 @@ type LoginRequest struct {
 	Hostname string `json:"hostname"`
 }
 
-// currentPrefsOpened must be called with prefsMu held.
-func currentPrefsOpened() PrefsOpened {
-	return PrefsOpened{Tab: prefsTab, Settings: currentSettings(), Login: prefsLogin}
+// currentSettingsOpened must be called with settingsWindowMu held.
+func currentSettingsOpened() SettingsOpened {
+	return SettingsOpened{Tab: settingsWindowTab, Settings: currentSettings(), Login: settingsLogin}
 }
 
-// showPreferencesWindow shows the preferences window on the given tab,
+// showSettingsWindow shows the settings window on the given tab,
 // creating it on first use.
-func showPreferencesWindow(tab int, login *LoginRequest) {
-	prefsMu.Lock()
-	defer prefsMu.Unlock()
+func showSettingsWindow(tab int, login *LoginRequest) {
+	settingsWindowMu.Lock()
+	defer settingsWindowMu.Unlock()
 
-	prefsTab = tab
-	prefsLogin = nil
+	settingsWindowTab = tab
+	settingsLogin = nil
 	if login != nil {
 		// Each request opens a fresh sheet, even for the same server.
-		prefsLoginID++
-		login.ID = prefsLoginID
-		prefsLogin = login
+		settingsLoginID++
+		login.ID = settingsLoginID
+		settingsLogin = login
 	}
-	if prefsWindow == nil {
+	if settingsWindow == nil {
 		opts := application.WebviewWindowOptions{
-			Name:             "preferences",
-			Title:            "Pangolin Preferences",
-			URL:              "/#/preferences",
-			Width:            720,
-			Height:           560,
-			MinWidth:         600,
-			MinHeight:        400,
+			Name:             "settings",
+			Title:            "Pangolin Settings",
+			URL:              "/#/settings",
+			Width:            960,
+			Height:           600,
+			MinWidth:         720,
+			MinHeight:        460,
 			Hidden:           true,
 			BackgroundColour: windowBackground(),
 			Windows: application.WindowsWindow{
@@ -422,52 +425,53 @@ func showPreferencesWindow(tab int, login *LoginRequest) {
 			},
 		}
 		scaleWindowOptions(&opts)
-		prefsWindow = app.Window.NewWithOptions(opts)
+		settingsWindow = app.Window.NewWithOptions(opts)
 		// Closing only hides the window. Hooks run on the main thread, so the
 		// work that takes locks happens on a goroutine.
-		prefsWindow.RegisterHook(events.Common.WindowClosing, func(e *application.WindowEvent) {
+		settingsWindow.RegisterHook(events.Common.WindowClosing, func(e *application.WindowEvent) {
 			e.Cancel()
-			go hidePreferencesWindow()
+			go hideSettingsWindow()
 		})
 	}
 
-	if !prefsOpen {
-		prefsOpen = true
-		prefsVisible.Store(true)
+	if !settingsWindowOpen {
+		settingsWindowOpen = true
+		settingsWindowVisible.Store(true)
 		startStatusPolling()
 		startLogTail()
+		updateServerSettingsPolling()
 	}
-	prefsWindow.EmitEvent("prefs:opened", currentPrefsOpened())
-	go refreshPreferencesServerSettings()
-	prefsWindow.Show()
-	if prefsWindow.IsMinimised() {
-		prefsWindow.Restore()
+	settingsWindow.EmitEvent("settings:opened", currentSettingsOpened())
+	settingsWindow.Show()
+	if settingsWindow.IsMinimised() {
+		settingsWindow.Restore()
 	}
-	focusWindow(prefsWindow)
+	focusWindow(settingsWindow)
 }
 
-func hidePreferencesWindow() {
-	prefsMu.Lock()
-	defer prefsMu.Unlock()
-	if prefsWindow == nil {
+func hideSettingsWindow() {
+	settingsWindowMu.Lock()
+	defer settingsWindowMu.Unlock()
+	if settingsWindow == nil {
 		return
 	}
-	prefsWindow.Hide()
-	if prefsOpen {
-		prefsOpen = false
-		prefsVisible.Store(false)
+	settingsWindow.Hide()
+	if settingsWindowOpen {
+		settingsWindowOpen = false
+		settingsWindowVisible.Store(false)
 		stopStatusPolling()
 		stopLogTail()
+		updateServerSettingsPolling()
 	}
 }
 
-func preferencesWindowOrNil() application.Window {
-	prefsMu.Lock()
-	defer prefsMu.Unlock()
-	if prefsWindow == nil {
+func settingsWindowOrNil() application.Window {
+	settingsWindowMu.Lock()
+	defer settingsWindowMu.Unlock()
+	if settingsWindow == nil {
 		return nil
 	}
-	return prefsWindow
+	return settingsWindow
 }
 
 // newDialogWindow creates a small fixed-size window for a single task, such as

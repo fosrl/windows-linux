@@ -45,6 +45,15 @@ type OrgConfig struct {
 	ExitNodeResourceID      *int     `json:"exitNodeResourceId,omitempty"`
 }
 
+// HasOwnSettings reports whether the org has its own values for the settings
+// the user switches between the ones for all organizations and the org's own.
+// Its exit node, match domains and prefer-local-routes setting don't count:
+// they aren't part of those settings.
+func (o OrgConfig) HasOwnSettings() bool {
+	return o.DNSOverride != nil || o.DNSTunnel != nil || o.PrimaryDNS != nil ||
+		o.SecondaryDNS != nil || o.MTU != nil || o.ExitNodeTakesPrecedence != nil
+}
+
 // IsEmpty reports whether the org overrides nothing.
 func (o OrgConfig) IsEmpty() bool {
 	return o.DNSOverride == nil && o.DNSTunnel == nil && o.PrimaryDNS == nil &&
@@ -211,13 +220,88 @@ func (cm *ConfigManager) UpdateOrgConfig(orgID string, changes OrgConfig) bool {
 	return cm.save(cfg)
 }
 
-// ResetOrgConfig removes the org's section of pangolin.json, so it uses the
-// global settings again.
+// GiveOrgOwnSettings gives the org its own settings, starting as a copy of the
+// ones for all organizations, so nothing changes until the user edits them.
+// Every setting is copied, so later changes to the settings for all
+// organizations don't affect the org. Values the org already has are kept, and
+// what its server manages still applies on top.
+func (cm *ConfigManager) GiveOrgOwnSettings(orgID string) bool {
+	cm.mu.Lock()
+	defer cm.mu.Unlock()
+
+	cfg := cm.getConfigCopy()
+	if cfg.Orgs == nil {
+		cfg.Orgs = map[string]OrgConfig{}
+	}
+	org := cfg.Orgs[orgID]
+	if org.DNSOverride == nil {
+		value := DefaultDNSOverride
+		if cfg.DNSOverride != nil {
+			value = *cfg.DNSOverride
+		}
+		org.DNSOverride = &value
+	}
+	if org.DNSTunnel == nil {
+		value := DefaultDNSTunnel
+		if cfg.DNSTunnel != nil {
+			value = *cfg.DNSTunnel
+		}
+		org.DNSTunnel = &value
+	}
+	if org.PrimaryDNS == nil {
+		value := ""
+		if cfg.PrimaryDNS != nil {
+			value = *cfg.PrimaryDNS
+		}
+		org.PrimaryDNS = &value
+	}
+	if org.SecondaryDNS == nil {
+		value := ""
+		if cfg.SecondaryDNS != nil {
+			value = *cfg.SecondaryDNS
+		}
+		org.SecondaryDNS = &value
+	}
+	if org.MTU == nil {
+		value := DefaultMTU
+		if cfg.MTU != nil && *cfg.MTU > 0 {
+			value = *cfg.MTU
+		}
+		org.MTU = &value
+	}
+	if org.ExitNodeTakesPrecedence == nil {
+		value := false
+		if cfg.ExitNodeTakesPrecedence != nil {
+			value = *cfg.ExitNodeTakesPrecedence
+		}
+		org.ExitNodeTakesPrecedence = &value
+	}
+	cfg.Orgs[orgID] = org
+	return cm.save(cfg)
+}
+
+// ResetOrgConfig removes the org's own settings, so it uses the ones for all
+// organizations again. Its exit node, match domains and prefer-local-routes
+// setting aren't part of them, so they're kept.
 func (cm *ConfigManager) ResetOrgConfig(orgID string) bool {
 	cm.mu.Lock()
 	defer cm.mu.Unlock()
 
 	cfg := cm.getConfigCopy()
-	delete(cfg.Orgs, orgID)
+	org, ok := cfg.Orgs[orgID]
+	if !ok {
+		return true
+	}
+	org.DNSOverride = nil
+	org.DNSTunnel = nil
+	org.PrimaryDNS = nil
+	org.SecondaryDNS = nil
+	org.MTU = nil
+	org.ExitNodeTakesPrecedence = nil
+	if org.IsEmpty() {
+		delete(cfg.Orgs, orgID)
+	} else {
+		cfg.Orgs[orgID] = org
+	}
 	return cm.save(cfg)
 }

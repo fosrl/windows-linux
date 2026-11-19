@@ -68,10 +68,20 @@ func startLinuxTray() {
 			setTrayClick(x/s, y/s, x != 0 || y != 0)
 			toggleTrayPopup()
 		},
-		Menu: []sni.MenuItem{{Label: "Quit Pangolin", OnClick: func() {
-			hideTrayPopup()
-			quit()
-		}}},
+		// GNOME's AppIndicator extension shows this menu on a single left
+		// click and only activates on a double click, so it can open the
+		// popup too.
+		Menu: []sni.MenuItem{
+			{Label: "Open Pangolin", OnClick: func() {
+				if trayWindow != nil && !trayWindow.IsVisible() {
+					showTrayPopup()
+				}
+			}},
+			{Label: "Quit Pangolin", OnClick: func() {
+				hideTrayPopup()
+				quit()
+			}},
+		},
 	})
 	if err != nil {
 		logger.Error("Failed to create the tray icon: %v", err)
@@ -83,11 +93,11 @@ func startLinuxTray() {
 		updateTrayForState(currentTunnelState())
 	}
 
-	// Without a tray there is no way to open Pangolin, so open Preferences.
+	// Without a tray there is no way to open Pangolin, so open Settings.
 	time.Sleep(trayHostWait)
 	if !shellExtensionActive() && (item == nil || !item.HostAvailable()) {
-		logger.Error("No system tray found; opening Preferences instead. On GNOME, enable the Pangolin extension.")
-		showPreferencesWindow(prefsTabPreferences, nil)
+		logger.Error("No system tray found; opening Settings instead. On GNOME, enable the Pangolin extension.")
+		showSettingsWindow(settingsTabGeneral, nil)
 	}
 }
 

@@ -284,8 +284,8 @@ func publish() {
 		return
 	}
 	app.Event.Emit(eventMenuState, currentMenuState())
-	// Keep Preferences > Accounts in step with the tray.
-	if prefsVisible.Load() {
+	// Keep Settings > Accounts in step with the tray.
+	if settingsWindowVisible.Load() {
 		app.Event.Emit(eventAccountsState, currentAccountsView())
 	}
 }

@@ -39,30 +39,30 @@ func invokeMenuItem(id string) {
 	case id == menuIDUpdate:
 		showUpdateWindow()
 	case id == menuIDReAuth:
-		// Log in again to the active account, from Preferences > Accounts.
+		// Log in again to the active account, from Settings > Accounts.
 		var hostname string
 		if accountManager != nil {
 			if active, _ := accountManager.ActiveAccount(); active != nil {
 				hostname = active.Hostname
 			}
 		}
-		showPreferencesWindow(prefsTabAccounts, &LoginRequest{Hostname: hostname})
+		showSettingsWindow(settingsTabAccounts, &LoginRequest{Hostname: hostname})
 	case id == menuIDConnect:
 		toggleConnection()
 	case id == menuIDLogin, id == menuIDAddAccount:
-		showPreferencesWindow(prefsTabAccounts, &LoginRequest{})
+		showSettingsWindow(settingsTabAccounts, &LoginRequest{})
 	case id == menuIDOpenSetup:
 		showOnboardingWindow()
 	case id == menuIDManageAccounts:
-		showPreferencesWindow(prefsTabAccounts, nil)
+		showSettingsWindow(settingsTabAccounts, nil)
 	case id == menuIDLogout:
 		logout()
-	case id == menuIDPreferences:
-		showPreferencesWindow(prefsTabPreferences, nil)
+	case id == menuIDSettings:
+		showSettingsWindow(settingsTabGeneral, nil)
 	case id == menuIDQuit:
 		quit()
 	case id == menuIDOpenStatus:
-		showPreferencesWindow(prefsTabStatus, nil)
+		showSettingsWindow(settingsTabStatus, nil)
 	case id == menuIDHowItWorks:
 		openURL(urlHowItWorks)
 	case id == menuIDDocs:
@@ -140,7 +140,7 @@ func openStatusTabOnConnect() {
 	if configManager == nil || !configManager.GetOpenStatusTabOnConnect() {
 		return
 	}
-	showPreferencesWindow(prefsTabStatus, nil)
+	showSettingsWindow(settingsTabStatus, nil)
 }
 
 func switchAccount(userID string) {
@@ -182,6 +182,9 @@ func switchAccount(userID string) {
 		return
 	}
 	publish()
+	// The org changed with the account: fetch its server settings and show it in
+	// the settings window, so changes there are saved for the right org.
+	refreshSettingsForCurrentOrg()
 	refreshExitNodes()
 }
 

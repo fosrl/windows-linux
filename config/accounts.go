@@ -38,7 +38,7 @@ type OrgSettings struct {
 	ExitNodeResourceID int `json:"exitNodeResourceId,omitempty"`
 
 	// The settings the org's server manages for this user, as last fetched
-	// from it. Refreshed on every connect and whenever Preferences opens; only
+	// from it. Refreshed on every connect and whenever Settings opens; only
 	// kept here so they still apply if the server can't be reached.
 	ServerSettings *ClientSettings `json:"serverSettings,omitempty"`
 }

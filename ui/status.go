@@ -16,7 +16,7 @@ var (
 	statusCurrent StatusView
 	// statusLoaded is true once an OLM status has been read since polling started.
 	statusLoaded bool
-	// statusRefs counts the views polling: the preferences window and the
+	// statusRefs counts the views polling: the settings window and the
 	// tray's sites submenu.
 	statusRefs int
 	// statusMenuVisible is true while the tray's sites submenu is open.
@@ -90,7 +90,7 @@ func currentStatusView() StatusView {
 }
 
 // pollStatus reads the tunnel state and OLM status once a second while the
-// preferences window is open.
+// settings window is open.
 func pollStatus(quit chan struct{}) {
 	ticker := time.NewTicker(time.Second)
 	defer ticker.Stop()

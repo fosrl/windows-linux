@@ -1,9 +1,10 @@
 import { useEffect, useState } from "react";
 import { AppService, type AppInfo } from "@bindings";
-import { Form, LinkRow, Row, Section, Value } from "../components/controls";
+import { Chevron, Form, LinkRow, Row, Section, Value } from "../components/controls";
 import { report, urls } from "../lib";
 
-export function AboutTab() {
+/** `onShowLogs` opens the Logs page, which replaces this one until Back. */
+export function AboutTab({ onShowLogs }: { onShowLogs: () => void }) {
   const [info, setInfo] = useState<AppInfo>({ version: "", year: new Date().getFullYear() });
   useEffect(() => {
     report(AppService.Info().then(setInfo));
@@ -29,6 +30,15 @@ export function AboutTab() {
         <LinkRow href={urls.terms}>Terms of Service</LinkRow>
         <LinkRow href={urls.privacy}>Privacy Policy</LinkRow>
       </Section>
+
+      <Section header="Troubleshooting">
+        <Row title="Logs" onClick={onShowLogs}>
+          <Chevron />
+        </Row>
+      </Section>
+      <p className="-mt-3.5 px-2.5 text-[11px] leading-[14px] text-mac-secondary">
+        Messages from the app and the tunnel. Save them when reporting a problem.
+      </p>
     </Form>
   );
 }

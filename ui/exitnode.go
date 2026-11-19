@@ -307,6 +307,8 @@ func resolveSavedExitNode(orgID string) (int, []int) {
 func syncExitNodeAfterOrgSwitch(orgID string) {
 	go func() {
 		fetchServerSettings(orgID)
+		// Show the new org in the settings window, so changes there are saved for it.
+		emitSettings()
 		if tunnelManager != nil && tunnelManager.State() == tunnel.StateRunning {
 			if resourceID, siteIDs := resolveSavedExitNode(orgID); resourceID != 0 {
 				if err := tunnelManager.SelectGateway(resourceID, siteIDs); err != nil {

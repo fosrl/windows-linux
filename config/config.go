@@ -450,7 +450,7 @@ func (cm *ConfigManager) GetSessionCookieName() string {
 }
 
 // GetOpenStatusTabOnConnect returns whether the tray Connect action should
-// open the preferences window directly on the Status tab after a successful connect.
+// open the settings window directly on the Status tab after a successful connect.
 func (cm *ConfigManager) GetOpenStatusTabOnConnect() bool {
 	cm.mu.RLock()
 	defer cm.mu.RUnlock()
