@@ -14,8 +14,8 @@ import (
 	"github.com/fosrl/newt/logger"
 )
 
-// The daemon installs the CLI binary from the CLI's GitHub release into the
-// same place its install script (get-cli.sh) does.
+// The daemon installs the CLI binary (see cli_release.go) into the same place
+// its install script (get-cli.sh) does.
 var cliInstallDir = "/usr/local/bin"
 
 const cliBinaryName = "pangolin"
@@ -77,15 +77,15 @@ func InstallCLI(userToken uintptr) error {
 	if err != nil {
 		return err
 	}
-	release, err := getLatestCLIRelease(cliInstallerRepo)
+	release, err := getLatestCLIRelease()
 	if err != nil {
 		return err
 	}
-	url, err := release.assetURL(asset)
+	url, digest, err := release.asset(asset)
 	if err != nil {
 		return err
 	}
-	logger.Info("Installing Pangolin CLI %s from %s", release.TagName, url)
+	logger.Info("Installing Pangolin CLI %s from %s", release.Version, url)
 
 	if err := os.MkdirAll(cliInstallDir, 0o755); err != nil {
 		return err
@@ -102,7 +102,7 @@ func InstallCLI(userToken uintptr) error {
 	if err := os.Remove(tmpPath); err != nil {
 		return err
 	}
-	if err := downloadCLIAsset(url, tmpPath); err != nil {
+	if err := downloadCLIAsset(url, tmpPath, digest); err != nil {
 		return err
 	}
 	if err := checkELF(tmpPath); err != nil {
@@ -115,7 +115,7 @@ func InstallCLI(userToken uintptr) error {
 	if err := os.Rename(tmpPath, target); err != nil {
 		return fmt.Errorf("failed to install %s: %w", target, err)
 	}
-	logger.Info("Installed Pangolin CLI %s at %s", release.TagName, target)
+	logger.Info("Installed Pangolin CLI %s at %s", release.Version, target)
 	return nil
 }
 

@@ -101,9 +101,11 @@ admins install immediately; others are asked via polkit (`pkcheck
 `packaging/linux/net.pangolin.client.policy` must be installed (all packages
 and `install-linux` do). pkcheck exit codes: 1 not authorized, 2 no
 authentication agent in the session, 3 cancelled, 127 + "is not registered" =
-policy missing. The install downloads `pangolin-cli_linux_<arch>` from the
-CLI's latest GitHub release (`managers/cli_release.go`, shared with Windows),
-checks it's an ELF, and renames it into `/usr/local/bin/pangolin` (same place
+policy missing. The install gets the latest CLI version and asset checksums
+from the Fossorial API (`api.fossorial.io/api/v1/versions/cli`, as `get-cli.sh`
+does), downloads `pangolin-cli_linux_<arch>` from that version's GitHub release
+(`managers/cli_release.go`, shared with Windows), checks its sha256 and that
+it's an ELF, and renames it into `/usr/local/bin/pangolin` (same place
 `get-cli.sh` uses). Test with network: `PANGOLIN_TEST_CLI_DOWNLOAD=1 go test ./managers -run CLI`.
 
 ## Secrets (`managers/secretstore/filestore_linux.go`)

@@ -7,6 +7,8 @@ import (
 	"os/exec"
 	"path/filepath"
 	"syscall"
+
+	"github.com/fosrl/newt/logger"
 )
 
 const cliInstallerAssetName = "pangolin-cli_windows_installer.msi"
@@ -34,23 +36,25 @@ func authorizeCLIInstall(s *ManagerService) (userToken, error) {
 }
 
 func InstallCLI(userToken uintptr) error {
-	release, err := getLatestCLIRelease(cliInstallerRepo)
+	release, err := getLatestCLIRelease()
 	if err != nil {
 		return err
 	}
 
-	installerURL, err := release.assetURL(cliInstallerAssetName)
+	installerURL, digest, err := release.asset(cliInstallerAssetName)
 	if err != nil {
 		return err
 	}
+	logger.Info("Installing Pangolin CLI %s from %s", release.Version, installerURL)
 
 	tempDir, err := os.MkdirTemp("", "pangolin-cli-install-*")
 	if err != nil {
 		return fmt.Errorf("failed to create temp dir: %w", err)
 	}
+	defer os.RemoveAll(tempDir)
 
 	installerPath := filepath.Join(tempDir, cliInstallerAssetName)
-	if err := downloadCLIAsset(installerURL, installerPath); err != nil {
+	if err := downloadCLIAsset(installerURL, installerPath, digest); err != nil {
 		return err
 	}
 

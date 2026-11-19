@@ -1,77 +1,91 @@
 package managers
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
 	"os"
+	"regexp"
 	"strings"
 	"time"
 )
 
-// The CLI install on each platform downloads an asset from the CLI's latest
-// GitHub release.
-const cliInstallerRepo = "fosrl/cli"
+// The CLI install on each platform asks the Fossorial API for the latest CLI
+// version and its assets' checksums, as the CLI's install script (get-cli.sh)
+// does, then downloads the asset from that version's GitHub release.
+const (
+	cliReleaseAPIURL      = "https://api.fossorial.io/api/v1/versions/cli"
+	cliReleaseDownloadURL = "https://github.com/fosrl/cli/releases/download"
+	cliInstallerUserAgent = "pangolin-client-cli-installer"
+)
 
-type githubReleaseAsset struct {
-	Name string `json:"name"`
-	URL  string `json:"browser_download_url"`
+// cliVersionPattern matches the release versions get-cli.sh accepts, so a
+// version can't change the shape of the download URL.
+var cliVersionPattern = regexp.MustCompile(`^[0-9A-Za-z.+-]+$`)
+
+type cliRelease struct {
+	Version      string
+	AssetDigests map[string]string
 }
 
-type githubReleaseResponse struct {
-	TagName string               `json:"tag_name"`
-	HTMLURL string               `json:"html_url"`
-	Assets  []githubReleaseAsset `json:"assets"`
+type cliReleaseResponse struct {
+	Data struct {
+		LatestVersion string            `json:"latestVersion"`
+		AssetDigests  map[string]string `json:"assetDigests"`
+	} `json:"data"`
 }
 
-const cliInstallerUserAgent = "pangolin-client-cli-installer"
-
-func getLatestCLIRelease(repo string) (*githubReleaseResponse, error) {
-	repoParts := strings.Split(repo, "/")
-	if len(repoParts) != 2 || repoParts[0] == "" || repoParts[1] == "" {
-		return nil, fmt.Errorf("invalid repo %q, expected owner/name", repo)
-	}
-
-	url := fmt.Sprintf("https://api.github.com/repos/%s/%s/releases/latest", repoParts[0], repoParts[1])
-	req, err := http.NewRequest(http.MethodGet, url, nil)
+func getLatestCLIRelease() (*cliRelease, error) {
+	req, err := http.NewRequest(http.MethodGet, cliReleaseAPIURL, nil)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create release request: %w", err)
 	}
-	req.Header.Set("Accept", "application/vnd.github+json")
+	req.Header.Set("Accept", "application/json")
 	req.Header.Set("User-Agent", cliInstallerUserAgent)
 
 	client := &http.Client{Timeout: 15 * time.Second}
 	resp, err := client.Do(req)
 	if err != nil {
-		return nil, fmt.Errorf("failed to query GitHub releases: %w", err)
+		return nil, fmt.Errorf("failed to get the latest CLI version: %w", err)
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		body, _ := io.ReadAll(resp.Body)
-		return nil, fmt.Errorf("GitHub releases API returned %d: %s", resp.StatusCode, string(body))
+		body, _ := io.ReadAll(io.LimitReader(resp.Body, 1024))
+		return nil, fmt.Errorf("CLI version API returned %d: %s", resp.StatusCode, string(body))
 	}
 
-	var release githubReleaseResponse
-	if err := json.NewDecoder(resp.Body).Decode(&release); err != nil {
-		return nil, fmt.Errorf("failed to decode release response: %w", err)
+	var body cliReleaseResponse
+	if err := json.NewDecoder(resp.Body).Decode(&body); err != nil {
+		return nil, fmt.Errorf("failed to decode the CLI version response: %w", err)
 	}
-	return &release, nil
+	version := strings.TrimPrefix(body.Data.LatestVersion, "v")
+	if !cliVersionPattern.MatchString(version) {
+		return nil, fmt.Errorf("CLI version API returned an invalid version %q", body.Data.LatestVersion)
+	}
+	return &cliRelease{Version: version, AssetDigests: body.Data.AssetDigests}, nil
 }
 
-// assetURL returns the download URL of the release asset called name.
-func (r *githubReleaseResponse) assetURL(name string) (string, error) {
-	for _, asset := range r.Assets {
-		if asset.Name == name && asset.URL != "" {
-			return asset.URL, nil
-		}
+// asset returns the download URL and published sha256 of the release asset
+// called name. An asset without a published checksum isn't installed.
+func (r *cliRelease) asset(name string) (url, digest string, err error) {
+	digest = strings.ToLower(r.AssetDigests[name])
+	if len(digest) != sha256.Size*2 {
+		return "", "", fmt.Errorf("CLI %s has no published checksum for %s", r.Version, name)
 	}
-	return "", fmt.Errorf("latest release does not include %s (release: %s)", name, r.HTMLURL)
+	if _, err := hex.DecodeString(digest); err != nil {
+		return "", "", fmt.Errorf("CLI %s has an invalid checksum for %s", r.Version, name)
+	}
+	return fmt.Sprintf("%s/%s/%s", cliReleaseDownloadURL, r.Version, name), digest, nil
 }
 
-// downloadCLIAsset saves url to destPath, which it creates.
-func downloadCLIAsset(url, destPath string) error {
+// downloadCLIAsset saves url to destPath, which it creates, and checks it
+// against the published sha256. A file that doesn't match is removed.
+func downloadCLIAsset(url, destPath, digest string) (err error) {
 	req, err := http.NewRequest(http.MethodGet, url, nil)
 	if err != nil {
 		return fmt.Errorf("failed to create download request: %w", err)
@@ -87,7 +101,7 @@ func downloadCLIAsset(url, destPath string) error {
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		body, _ := io.ReadAll(resp.Body)
+		body, _ := io.ReadAll(io.LimitReader(resp.Body, 1024))
 		return fmt.Errorf("CLI download failed with %d: %s", resp.StatusCode, string(body))
 	}
 
@@ -95,10 +109,22 @@ func downloadCLIAsset(url, destPath string) error {
 	if err != nil {
 		return fmt.Errorf("failed to create download file: %w", err)
 	}
-	defer out.Close()
+	defer func() {
+		out.Close()
+		if err != nil {
+			os.Remove(destPath)
+		}
+	}()
 
-	if _, err := io.Copy(out, resp.Body); err != nil {
+	hash := sha256.New()
+	if _, err := io.Copy(io.MultiWriter(out, hash), resp.Body); err != nil {
 		return fmt.Errorf("failed to write download file: %w", err)
 	}
-	return out.Close()
+	if err := out.Close(); err != nil {
+		return fmt.Errorf("failed to write download file: %w", err)
+	}
+	if got := hex.EncodeToString(hash.Sum(nil)); got != digest {
+		return errors.New("the downloaded CLI doesn't match its published checksum; it may be corrupted or tampered with")
+	}
+	return nil
 }
