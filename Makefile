@@ -123,9 +123,12 @@ test:
 # Compile the manifest and icon into a .syso. Wails loads the app icon for
 # message boxes and toast notifications from icon group resource ID 3, which
 # is where its own syso generator puts it (akavel/rsrc used ID 2).
+# CGO_ENABLED=0: this runs the wails CLI on the build host, and on Linux its
+# cgo files want gtk4 + webkitgtk-6.0, which CI runners don't have. The syso
+# generator doesn't need them.
 rsrc:
 	@echo "Compiling manifest and icon..."
-	@go run github.com/wailsapp/wails/v3/cmd/wails3@v3.0.0 generate syso -manifest $(MANIFEST) -icon icons/icon-orange.ico -arch $(GOARCH) -out $(RSRC_SYSO)
+	@CGO_ENABLED=0 go run github.com/wailsapp/wails/v3/cmd/wails3@v3.0.0 generate syso -manifest $(MANIFEST) -icon icons/icon-orange.ico -arch $(GOARCH) -out $(RSRC_SYSO)
 	@echo "Resources compiled: $(RSRC_SYSO)"
 
 # Clean build artifacts
