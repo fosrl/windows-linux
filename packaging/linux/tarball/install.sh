@@ -62,6 +62,11 @@ uninstall() {
             rc-service "$NAME" stop >/dev/null 2>&1 || true
             rc-update del "$NAME" >/dev/null 2>&1 || true
         fi
+        # Removes the DNS block page CA from the trust store and browser
+        # policies; needs the binary, so before it is deleted.
+        if [ -x "$BIN" ]; then
+            "$BIN" --uninstall-cleanup >/dev/null 2>&1 || true
+        fi
     fi
     rm -f "$DESTDIR$BIN" "$DESTDIR$APPLICATIONS/$NAME.desktop" "$DESTDIR$ICON" \
         "$DESTDIR$AUTOSTART" "$DESTDIR$POLKIT" "$DESTDIR$SYSTEMD_UNIT" "$DESTDIR$OPENRC_SCRIPT"

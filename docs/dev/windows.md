@@ -73,6 +73,10 @@ The service (`/managerservice`, `managers/service_windows.go`):
   install, stopped on install/uninstall, removed on uninstall.
 - `MajorUpgrade` (downgrades refused). `Version` comes from `-d Version=X.Y.Z`
   (numeric only; CI strips `-rc.N`).
+- Custom actions: `UninstallCleanup` runs `Pangolin.exe /uninstallcleanup` as
+  SYSTEM on removal (not upgrade), after `StopServices`, to take the DNS block
+  page CA out of LocalMachine\ROOT and delete its key in
+  `%ProgramData%\olm\blockpage`.
 - Custom actions: install WebView2 via bootstrapper when not present
   (registry search for machine/user WebView2), clean up an orphaned manager
   service from older installs (`WixToolset.Util.wixext`).

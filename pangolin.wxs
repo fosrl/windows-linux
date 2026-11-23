@@ -164,7 +164,23 @@
                   Impersonate="no"
                   Return="ignore" />
 
+    <!-- On removal (not upgrade): take the DNS block page CA out of the machine
+         trust store and delete its key. Needs Pangolin.exe, so before RemoveFiles. -->
+    <SetProperty Id="UninstallCleanup"
+                 Value="&quot;[INSTALLFOLDER]Pangolin.exe&quot; /uninstallcleanup"
+                 Sequence="execute"
+                 Before="UninstallCleanup" />
+    <CustomAction Id="UninstallCleanup"
+                  BinaryRef="Wix4UtilCA_$(sys.BUILDARCHSHORT)"
+                  DllEntry="WixQuietExec"
+                  Execute="deferred"
+                  Impersonate="no"
+                  Return="ignore" />
+
     <InstallExecuteSequence>
+      <Custom Action="UninstallCleanup"
+              After="StopServices"
+              Condition="REMOVE~=&quot;ALL&quot; AND NOT UPGRADINGPRODUCTCODE" />
       <Custom Action="CleanupOrphanedManagerService"
               Before="InstallServices"
               Condition="NOT REMOVE~=&quot;ALL&quot;" />

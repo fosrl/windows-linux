@@ -61,7 +61,7 @@ All scripts exit early without systemd (`/run/systemd/system` missing).
 | Script | deb args | rpm args | Arch | Action |
 | --- | --- | --- | --- | --- |
 | `postinstall.sh` | `configure <old ver or empty>` | `1` install / `≥2` upgrade | `post_install <ver>` | new install → `systemctl enable --now`; upgrade → `try-restart` |
-| `preremove.sh` | `remove` / `upgrade` / `failed-upgrade` | `0` remove / `1` upgrade | `pre_remove` | real removal only → `disable --now` + touch `/var/lib/pangolin-client/.removed` |
+| `preremove.sh` | `remove` / `upgrade` / `failed-upgrade` | `0` remove / `1` upgrade | `pre_remove` | real removal only → `disable --now` + touch `/var/lib/pangolin-client/.removed` (systemd hosts), then `pangolin-client --uninstall-cleanup` |
 | `postremove.sh` | `purge` etc. | | | daemon-reload; deb purge removes `/var/lib`, `/var/log`, `/etc` dirs |
 | `postupgrade-arch.sh` | | | `post_upgrade` | daemon-reload + try-restart |
 
@@ -119,6 +119,15 @@ LICENSE}`. Built with `--sort=name --owner=0 --group=0`.
 - `DESTDIR` stages files for distro packagers without touching the system.
 - `--uninstall` or running the installed `uninstall.sh` removes everything but
   `/var/lib/pangolin-client` and `/var/log/pangolin-client`.
+
+**Uninstall cleanup** (added 2026-11-23): `pangolin-client --uninstall-cleanup`
+(root, hidden from usage) calls olm's `blockpage.Uninstall`: removes the DNS
+block page CA from the system trust store, the Chromium `CACertificates` policy
+files and Firefox `policies.json` entries olm wrote, and the CA key in
+`/var/lib/olm/blockpage`. Every removal path runs it after stopping the
+service: `preremove.sh`, the AUR `pre_remove`, tarball `uninstall`, and
+`make uninstall-linux`. The tunnel itself already drops the browser policies
+whenever it stops or has no block page list.
 - Refreshes icon cache and desktop database when the tools exist.
 
 OpenRC service (`packaging/linux/openrc/pangolin-client`): `command_background`,

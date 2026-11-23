@@ -14,4 +14,6 @@ post_upgrade() {
 
 pre_remove() {
   systemctl disable --now pangolin-client.service >/dev/null 2>&1 || true
+  # Removes the DNS block page CA from the trust store and browser policies.
+  /usr/bin/pangolin-client --uninstall-cleanup >/dev/null 2>&1 || true
 }

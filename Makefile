@@ -100,6 +100,7 @@ install-linux:
 
 uninstall-linux:
 	-systemctl disable --now pangolin-client
+	-$(DESTDIR)$(PREFIX)/bin/$(LINUX_BINARY_NAME) --uninstall-cleanup
 	rm -f $(DESTDIR)$(PREFIX)/bin/$(LINUX_BINARY_NAME) $(DESTDIR)/etc/systemd/system/pangolin-client.service
 	rm -f $(DESTDIR)$(PREFIX)/share/applications/pangolin-client.desktop $(DESTDIR)/etc/xdg/autostart/pangolin-client-autostart.desktop
 	rm -f $(DESTDIR)$(PREFIX)/share/icons/hicolor/256x256/apps/pangolin-client.png

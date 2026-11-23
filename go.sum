@@ -12,8 +12,6 @@ github.com/davecgh/go-spew v1.1.1 h1:vj9j/u1bqnvCEfJOwUhtlOARqs3+rkHYY13jYWTU97c
 github.com/davecgh/go-spew v1.1.1/go.mod h1:J7Y8YcW2NihsgmVo/mv3lAwl/skON4iLHjSsI+c5H38=
 github.com/fosrl/newt v1.19.0 h1:7ELF+fIqYBbCNsIAIQVkklYFIweaA9I8Va91+OaIe2M=
 github.com/fosrl/newt v1.19.0/go.mod h1:T1LpzfkNZkMw4NpdgG66NbL5YTvP1T2Om4XPg8KbBy8=
-github.com/fosrl/olm v1.10.2 h1:pj72Fu+b+fzydOv4QZRi+CpeM/iLKL+5jyrk1+oqlVY=
-github.com/fosrl/olm v1.10.2/go.mod h1:EBZ9lHq5cbHxIP3J9WyL3w8jlkso8qWKI9vIalOMdWE=
 github.com/go-json-experiment/json v0.0.0-20251027170946-4849db3c2f7e h1:Lf/gRkoycfOBPa42vU2bbgPurFong6zXeFtPoxholzU=
 github.com/go-json-experiment/json v0.0.0-20251027170946-4849db3c2f7e/go.mod h1:uNVvRXArCGbZ508SxYYTC5v1JWoz2voff5pm25jU1Ok=
 github.com/go-ole/go-ole v1.3.0 h1:Dt6ye7+vXGIKZ7Xtk4s6/xVdGDQynvom7xCFEdWr6uE=

@@ -77,6 +77,14 @@ func main() {
 		return
 	}
 
+	// Run as SYSTEM by the MSI when the product is removed.
+	if len(os.Args) == 2 && os.Args[1] == "/uninstallcleanup" {
+		if err := uninstallCleanup(); err != nil {
+			os.Exit(1)
+		}
+		return
+	}
+
 	// Check if we're being run as the manager service
 	if len(os.Args) >= 2 && os.Args[1] == "/managerservice" {
 		// Run as Windows service

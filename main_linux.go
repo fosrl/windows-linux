@@ -59,6 +59,13 @@ func main() {
 		}
 		return
 
+	case len(args) == 1 && args[0] == "--uninstall-cleanup":
+		// Run as root by the package removal scripts; not in the usage text.
+		if err := uninstallCleanup(); err != nil {
+			os.Exit(1)
+		}
+		return
+
 	case len(args) == 1 && args[0] == "--autostart":
 		// Run from the XDG autostart entry at sign-in: only open the UI if
 		// the user asked for it, as the Windows service does at logon.
